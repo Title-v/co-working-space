@@ -47,9 +47,12 @@
           <div id="desk-picker">
             <div id="zones" class="zone-picker" role="group" aria-label="เลือกโซนจากผังย่อ"></div>
             <div class="map-heading">
-              <div>
-                <h3 id="zone-title">ผังโต๊ะ</h3>
-                <p id="plan-description" class="plan-description"></p>
+              <div class="zone-identity">
+                <div id="zone-photo" hidden></div>
+                <div>
+                  <h3 id="zone-title">ผังโต๊ะ</h3>
+                  <p id="plan-description" class="plan-description"></p>
+                </div>
               </div>
               <div class="map-tools">
                 <span id="zone-count"></span>
@@ -75,9 +78,12 @@
             </div>
           </div>
           <div id="private-picker" hidden>
-            <div class="private-intro"><span>เลือกได้หนึ่งห้องต่อรายการ</span><span id="private-count"></span></div>
-            <div class="room-columns" aria-hidden="true"><span>ชื่อห้อง</span><span>ความจุ</span><span id="private-price-heading">ราคาเหมารอบนี้</span><span>สถานะ</span></div>
-            <div id="private-room-list" role="radiogroup" aria-label="เลือกห้องส่วนตัว"></div>
+            <div class="private-intro"><span>เลือกได้หนึ่งห้องต่อรายการ · กดภาพจำลองเพื่อขยาย</span><span id="private-count"></span></div>
+            <div class="room-columns" aria-hidden="true">
+              <span>ภาพห้อง</span>
+              <div class="room-fields"><span>ชื่อห้อง</span><span>ความจุ</span><span id="private-price-heading">ราคาเหมารอบนี้</span><span>สถานะ</span></div>
+            </div>
+            <div id="private-room-list" role="group" aria-label="เลือกห้องส่วนตัว"></div>
           </div>
         </section>
       </div>
@@ -98,6 +104,19 @@
       </aside>
     </div>
   </main>
+  <dialog id="room-photo-dialog" class="room-photo-dialog" aria-labelledby="room-photo-title" aria-describedby="room-photo-caption">
+    <div class="photo-panel">
+      <header>
+        <h2 id="room-photo-title">ภาพห้อง</h2>
+        <form method="dialog"><button type="submit" class="secondary" autofocus>ปิดภาพ</button></form>
+      </header>
+      <div class="photo-stage">
+        <img id="room-photo-full" width="1200" height="800" alt="" hidden>
+        <p id="room-photo-status" role="status"></p>
+      </div>
+      <p id="room-photo-caption"></p>
+    </div>
+  </dialog>
   <script type="module" src="/reserve.js"></script>
 </body>
 </html>

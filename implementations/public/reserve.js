@@ -10,6 +10,7 @@ import {
   thaiDate
 } from './site.js';
 import { renderFloorPlan, zoneButton, zoneFromCode } from './floor-plan.js';
+import { privateRoomPhoto, updateZonePhoto } from './room-photos.js';
 
 const $ = (id) => document.getElementById(id);
 const day = $('day'),
@@ -116,6 +117,7 @@ function clearSchedule() {
     'extra-desks'
   ])
     $(id).hidden = true;
+  updateZonePhoto();
   $('plan-description').textContent = '';
   $('zone-title').textContent = 'ผังโต๊ะ';
   $('zone-count').textContent = '';
@@ -156,6 +158,10 @@ function draw() {
 }
 
 function drawPrivateRooms(slot) {
+  const list = $('private-room-list');
+  const focused = list.contains(document.activeElement)
+    ? document.activeElement
+    : null;
   const free = new Set(availableIds(slot));
   const rooms = schedule.privateRooms || [];
   $('private-price-heading').textContent = slot
@@ -164,12 +170,10 @@ function drawPrivateRooms(slot) {
   $('private-count').textContent =
     'ว่าง ' + free.size + ' / ' + rooms.length + ' ห้อง';
   if (!rooms.length) {
-    $('private-room-list').replaceChildren(
-      el('p', 'ยังไม่มีห้องส่วนตัวเปิดให้จอง', 'muted')
-    );
+    list.replaceChildren(el('p', 'ยังไม่มีห้องส่วนตัวเปิดให้จอง', 'muted'));
     return;
   }
-  $('private-room-list').replaceChildren(
+  list.replaceChildren(
     ...rooms.map((room) => {
       const row = el('label', null, 'private-option');
       const radio = document.createElement('input');
@@ -194,9 +198,20 @@ function drawPrivateRooms(slot) {
         el('span', price, 'private-price'),
         el('span', radio.disabled ? 'ไม่ว่าง' : 'ว่าง', 'private-status')
       );
-      return row;
+      const line = el('div', null, 'private-line');
+      line.append(
+        privateRoomPhoto(room) || el('span', '—', 'photo-unavailable'),
+        row
+      );
+      return line;
     })
   );
+  if (focused) {
+    const control = focused.dataset.photo
+      ? list.querySelector('[data-photo="' + focused.dataset.photo + '"]')
+      : list.querySelector('input:enabled[value="' + focused.value + '"]');
+    control?.focus({ preventScroll: true });
+  }
 }
 
 function drawDesks(slot) {

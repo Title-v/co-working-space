@@ -172,6 +172,18 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
     // ─────────────────────────────────────────────────────────────
     // Membership System
     // ─────────────────────────────────────────────────────────────
+    describe('Room photographs', () => {
+        const rooms = ['zone-a', 'zone-b', 'zone-c',
+            ...Array.from({length: 10}, (_, i) => 'private-' + String(i + 1).padStart(2, '0'))];
+
+        it.each(rooms)('serves the thumbnail and detail for %s', async room => {
+            const images = await Promise.all(['-thumb', ''].map(suffix =>
+                request(app).get('/images/rooms/' + room + suffix + '.webp').expect(200).expect('Content-Type', /image\/webp/)));
+            for (const image of images) expect(image.body.toString('ascii', 8, 12)).toBe('WEBP');
+            expect(images[0].body.length).toBeLessThan(images[1].body.length);
+        });
+    });
+
     describe('Reservation rules', () => {
         const future = bookingWindow(new Date(Date.now() + 86400000)).today;
 
