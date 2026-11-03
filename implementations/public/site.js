@@ -1,11 +1,28 @@
-const brandMark =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h12v5H3zM3 12v6m12-6v6M17 4h4v9h-4M17 16h4"/></svg>';
 export const deskMark =
   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="14" height="9" rx="1.6"/><path d="M10 12v3m-4 1h8"/></svg>';
 const header = document.getElementById('site-header');
 const here = document.body.dataset.page;
-header.innerHTML = `<nav class="nav" aria-label="เมนูหลัก"><a class="brand" href="/" aria-label="SpaceHub หน้าจองโต๊ะ"><span class="mark">${brandMark}</span>SpaceHub</a>
-  <div class="nav-links"><a href="/#reserve" ${here === 'reserve' ? 'aria-current="page"' : ''}>จองโต๊ะ</a><a href="/my-bookings.html" ${here === 'mine' ? 'aria-current="page"' : ''}>การจองของฉัน</a></div><div class="nav-user"></div></nav>`;
+header.innerHTML = `
+  <nav class="dashboard__nav customer-nav" aria-label="เมนูหลัก">
+    <a class="dashboard__nav-logo" href="/" aria-label="SpaceHub หน้าจองโต๊ะ">
+      <span class="navbar__logo-icon" aria-hidden="true">⬡</span>SpaceHub
+    </a>
+    <div class="dashboard__nav-links"></div>
+    <div class="nav-user"></div>
+  </nav>`;
+
+const navigation = header.querySelector('.dashboard__nav-links');
+for (const [page, label, href] of [
+  ['reserve', 'จองโต๊ะ', '/#reserve'],
+  ['mine', 'การจองของฉัน', '/my-bookings.html']
+]) {
+  const item = link(label, href, 'nav-link');
+  if (here === page) {
+    item.classList.add('nav-link--active');
+    item.setAttribute('aria-current', 'page');
+  }
+  navigation.append(item);
+}
 
 export async function api(path, init = {}) {
   const response = await fetch(path, {
@@ -94,6 +111,17 @@ export const thaiDate = (day) =>
     year: 'numeric',
     timeZone: 'Asia/Bangkok'
   }).format(new Date(day + 'T12:00:00+07:00'));
+export function formatDesks(desks) {
+  const groups = new Map();
+  for (const d of desks) {
+    if (!groups.has(d.zone)) groups.set(d.zone, []);
+    groups.get(d.zone).push(d.label.replace(/^Desk /, 'โต๊ะ '));
+  }
+  return [...groups]
+    .map(([room, seats]) => room + ' · ' + seats.join(', '))
+    .join(' / ');
+}
+
 export const bookingRef = (id) => 'SH-' + String(id).padStart(6, '0');
 
 const menu = header.querySelector('.nav-user');
@@ -103,9 +131,9 @@ export const session = api('/api/session').then(({ user }) => {
     const profile = link(
       staffHome(user) ? 'หลังเคาน์เตอร์' : 'บัญชีของฉัน',
       staffHome(user) || '/profile.html',
-      'profile-link'
+      'nav-link profile-link'
     );
-    const logout = el('button', 'ออกจากระบบ');
+    const logout = el('button', 'ออกจากระบบ', 'secondary');
     logout.type = 'button';
     logout.onclick = async () => {
       logout.disabled = true;

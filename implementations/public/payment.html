@@ -3,17 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183d33">
+  <meta name="theme-color" content="#1a73e8">
   <title>ชำระเงินเดโม · SpaceHub</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="payment">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="shell">
-  <section class="page-title"><p class="eyebrow ink-light">RESERVATION CHECKOUT</p><h1>ชำระเงินเดโม</h1><p class="lede">ตรวจรายละเอียดก่อนยืนยัน ระบบจะบันทึกการจองโดยไม่มีการตัดเงินจริง</p></section>
-  <p class="notice" id="ticket-message" role="status" hidden></p><section id="ticket-list" class="ticket-list checkout" aria-label="รายละเอียดการจอง" aria-live="polite"><p class="muted">กำลังโหลดรายละเอียด…</p></section></main>
-  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <main id="main" class="workspace workspace--narrow">
+    <header class="dashboard__welcome page-heading">
+      <h1>ชำระเงินเดโม</h1>
+      <p>ตรวจสอบห้อง โต๊ะ และยอดชำระก่อนยืนยันรายการ</p>
+    </header>
+    <p id="ticket-message" class="notice" role="status" hidden></p>
+    <section id="ticket-list" class="ticket-list" aria-label="รายละเอียดการจอง" aria-live="polite">
+      <p class="muted">กำลังโหลดรายละเอียด…</p>
+    </section>
+  </main>
   <script type="module" src="/tickets.js"></script>
 </body>
 </html>

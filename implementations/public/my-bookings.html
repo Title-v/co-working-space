@@ -3,18 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183d33">
+  <meta name="theme-color" content="#1a73e8">
   <title>การจองของฉัน · SpaceHub</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="mine">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="shell">
-  <section class="page-title"><p class="eyebrow ink-light">MY RESERVATIONS</p><h1>การจองของฉัน</h1><p class="lede">ตรวจสถานะ ชำระเดโม หรือยกเลิกการจองก่อนถึงวันเข้าใช้</p></section>
-  <div class="list-head"><h2>รายการจอง</h2><a class="secondary" href="/#reserve">+ จองโต๊ะเพิ่ม</a></div>
-  <p class="notice" id="ticket-message" role="status" hidden></p><section id="ticket-list" class="ticket-list" aria-label="รายการจองของฉัน" aria-live="polite"><p class="muted">กำลังโหลดการจอง…</p></section></main>
-  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <main id="main" class="workspace">
+    <header class="dashboard__welcome page-heading page-heading--action">
+      <div>
+        <h1>การจองของฉัน</h1>
+        <p>ตรวจสอบสถานะ ชำระเดโม หรือยกเลิกรายการจอง</p>
+      </div>
+      <a class="heading-action" href="/#reserve">จองโต๊ะเพิ่ม</a>
+    </header>
+    <p id="ticket-message" class="notice" role="status" hidden></p>
+    <section id="ticket-list" class="ticket-list" aria-label="รายการจองของฉัน" aria-live="polite">
+      <p class="muted">กำลังโหลดการจอง…</p>
+    </section>
+  </main>
   <script type="module" src="/tickets.js"></script>
 </body>
 </html>

@@ -3,25 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183d33">
+  <meta name="theme-color" content="#1a73e8">
   <title>เข้าสู่ระบบ · SpaceHub</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="login">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="shell">
-  <div class="account-wrap"><div class="account-image" aria-hidden="true"><img src="/meeting_room.png" alt=""></div><section class="account-card">
-    <p class="eyebrow ink-light">SPACEHUB ACCOUNT</p><h1>เข้าสู่ระบบ</h1>
-    <p class="muted">เข้าสู่ระบบเพื่อยืนยันและดูการจองของคุณ</p>
-    <form id="account-form">
-
-      <label class="field">อีเมล<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
-      <label class="field">รหัสผ่าน<input type="password" name="password" autocomplete="current-password"  required></label>
-      <p class="notice" id="account-message" role="alert" hidden></p><button class="primary" type="submit">เข้าสู่ระบบ</button>
-    </form><p class="form-tail">ยังไม่มีบัญชี <a id="switch-account" href="/register.html">สมัครสมาชิก</a></p>
-  </section></div></main>
-  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <main id="main" class="workspace workspace--account">
+    <section class="auth-card account-form" aria-labelledby="account-title">
+      <header class="auth-card__header">
+        <h1 id="account-title" class="auth-card__title">เข้าสู่ระบบ</h1>
+        <p class="auth-card__subtitle">เข้าสู่ระบบเพื่อจองโต๊ะหรือดูรายการจองของคุณ</p>
+      </header>
+      <form id="account-form">
+        <div class="form-group">
+          <label for="email">อีเมล</label>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+        </div>
+        <div class="form-group">
+          <label for="password">รหัสผ่าน</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <p id="account-message" class="notice" role="alert" hidden></p>
+        <button class="btn-submit" type="submit">เข้าสู่ระบบ</button>
+      </form>
+      <p class="auth-card__footer">ยังไม่มีบัญชี <a id="switch-account" href="/register.html">สมัครสมาชิก</a></p>
+    </section>
+  </main>
   <script type="module" src="/account.js"></script>
 </body>
 </html>

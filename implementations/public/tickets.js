@@ -2,6 +2,7 @@ import {
   api,
   baht,
   bookingRef,
+  formatDesks,
   el,
   link,
   loginUrl,
@@ -49,27 +50,17 @@ function action(label, handler, className = 'primary') {
   return b;
 }
 function ticket(b) {
-  const card = el('article', null, 'ticket'),
+  const card = el('article', null, 'booking-card ticket'),
     top = el('div', null, 'ticket-top');
   top.append(
-    el('div', bookingRef(b.id), 'ref'),
+    el('div', 'เลขที่การจอง ' + bookingRef(b.id), 'ref'),
     el('span', labels[b.status] || b.status, 'badge ' + b.status)
   );
   card.append(top, el('h2', thaiDate(b.booking_date)));
-  const groups = new Map();
-  for (const d of b.desks) {
-    if (!groups.has(d.zone)) groups.set(d.zone, []);
-    groups.get(d.zone).push(d.label.replace(/^Desk /, 'โต๊ะ '));
-  }
   const details = el('dl', null, 'details');
   const rows = [
     ['ช่วงเวลา', b.start_time + ' – ' + b.end_time + ' น.'],
-    [
-      'ที่นั่ง',
-      [...groups]
-        .map(([zone, seats]) => zone + ' · ' + seats.join(', '))
-        .join(' / ')
-    ],
+    ['ที่นั่ง', formatDesks(b.desks)],
     ['ยอดชำระเดโม', baht.format(b.total_baht)]
   ];
   for (const [name, value] of rows) {
@@ -171,7 +162,7 @@ async function load() {
     const rows = checkout ? [data.booking] : data.bookings;
     if (rows.length) list.replaceChildren(...rows.map(ticket));
     else {
-      const box = el('article', null, 'ticket empty');
+      const box = el('article', null, 'booking-card ticket empty');
       box.append(
         el('h2', 'ยังไม่มีการจอง'),
         el(

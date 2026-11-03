@@ -2,6 +2,7 @@ import {
   api,
   baht,
   deskMark,
+  formatDesks,
   el,
   loginUrl,
   notice,
@@ -56,7 +57,7 @@ function summary() {
   $('sum-day').textContent = day.value ? thaiDate(day.value) : '—';
   $('sum-time').textContent = slot ? slot.label + ' น.' : '—';
   $('sum-desks').textContent = desks.length
-    ? desks.map((d) => d.label.replace(/^Desk /, 'โต๊ะ ')).join(', ')
+    ? formatDesks(desks)
     : 'ยังไม่ได้เลือก';
   $('unit-price').textContent = settings ? baht.format(settings.price) : '—';
   $('total').textContent = baht.format(desks.length * (settings?.price || 0));
@@ -78,7 +79,7 @@ function draw() {
       const b = el(
         'button',
         s.startTime === '08:00' && s.endTime === '18:00'
-          ? 'เต็มวัน 08–18'
+          ? 'เต็มวัน 08–18 น.'
           : s.label
       );
       b.type = 'button';
@@ -114,7 +115,7 @@ function draw() {
   );
   const roomDesks = schedule.desks.filter((d) => d.zone === zone);
   const free = new Set(slot?.availableIds || []);
-  $('zone-title').textContent = zone || 'ยังไม่มีโต๊ะเปิดให้จอง';
+  $('zone-title').textContent = zone ? 'หมายเลขโต๊ะ' : 'ยังไม่มีโต๊ะเปิดให้จอง';
   $('zone-count').textContent = slot
     ? 'ว่าง ' +
       roomDesks.filter((d) => free.has(d.id)).length +

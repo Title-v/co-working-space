@@ -3,15 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183d33">
+  <meta name="theme-color" content="#1a73e8">
   <title>บัญชีของฉัน · SpaceHub</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="profile">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="shell"><section class="page-title"><p class="eyebrow ink-light">ACCOUNT</p><h1>บัญชีของฉัน</h1></section><section class="ticket checkout" id="profile-details" aria-live="polite">กำลังโหลด…</section></main>
-  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <main id="main" class="workspace workspace--narrow">
+    <header class="dashboard__welcome page-heading">
+      <h1>บัญชีของฉัน</h1>
+    </header>
+    <section id="profile-details" class="booking-card ticket" aria-label="ข้อมูลบัญชี" aria-live="polite">กำลังโหลด…</section>
+  </main>
   <script type="module" src="/account.js"></script>
 </body>
 </html>

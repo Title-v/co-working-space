@@ -3,26 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183d33">
-  <title>สมัครสมาชิก · SpaceHub</title>
+  <meta name="theme-color" content="#1a73e8">
+  <title>สร้างบัญชี · SpaceHub</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="register">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="shell">
-  <div class="account-wrap"><div class="account-image" aria-hidden="true"><img src="/meeting_room.png" alt=""></div><section class="account-card">
-    <p class="eyebrow ink-light">SPACEHUB ACCOUNT</p><h1>สร้างบัญชี</h1>
-    <p class="muted">ใช้บัญชีนี้จองโต๊ะและจัดการวันเข้าใช้ของคุณ</p>
-    <form id="account-form">
-      <div class="two-fields"><label class="field">ชื่อ<input name="firstName" autocomplete="given-name" maxlength="100" required></label><label class="field">นามสกุล<input name="lastName" autocomplete="family-name" maxlength="100" required></label></div>
-      <label class="field">เบอร์ติดต่อ<input type="tel" name="phone" autocomplete="tel" maxlength="30" required></label>
-      <label class="field">อีเมล<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
-      <label class="field">รหัสผ่าน<input type="password" name="password" autocomplete="new-password" minlength="8" required><small>อย่างน้อย 8 ตัวอักษร</small></label>
-      <p class="notice" id="account-message" role="alert" hidden></p><button class="primary" type="submit">สร้างบัญชี</button>
-    </form><p class="form-tail">มีบัญชีอยู่แล้ว <a id="switch-account" href="/login.html">เข้าสู่ระบบ</a></p>
-  </section></div></main>
-  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <main id="main" class="workspace workspace--account">
+    <section class="auth-card account-form" aria-labelledby="account-title">
+      <header class="auth-card__header">
+        <h1 id="account-title" class="auth-card__title">สร้างบัญชี</h1>
+        <p class="auth-card__subtitle">สมัครเพื่อจองโต๊ะและจัดการรายการจองของคุณ</p>
+      </header>
+      <form id="account-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="firstName">ชื่อ</label>
+            <input id="firstName" name="firstName" type="text" autocomplete="given-name" maxlength="100" required>
+          </div>
+          <div class="form-group">
+            <label for="lastName">นามสกุล</label>
+            <input id="lastName" name="lastName" type="text" autocomplete="family-name" maxlength="100" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="phone">เบอร์ติดต่อ</label>
+          <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="30" required>
+        </div>
+        <div class="form-group">
+          <label for="email">อีเมล</label>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+        </div>
+        <div class="form-group">
+          <label for="password">รหัสผ่าน</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" aria-describedby="password-hint" required>
+          <small id="password-hint" class="fine-print">อย่างน้อย 8 ตัวอักษร</small>
+        </div>
+        <p id="account-message" class="notice" role="alert" hidden></p>
+        <button class="btn-submit" type="submit">สร้างบัญชี</button>
+      </form>
+      <p class="auth-card__footer">มีบัญชีอยู่แล้ว <a id="switch-account" href="/login.html">เข้าสู่ระบบ</a></p>
+    </section>
+  </main>
   <script type="module" src="/account.js"></script>
 </body>
 </html>

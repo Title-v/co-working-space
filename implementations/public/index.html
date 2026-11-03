@@ -3,51 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183d33">
+  <meta name="theme-color" content="#1a73e8">
   <title>จองโต๊ะทำงาน · SpaceHub</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="reserve">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="shell">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow"><span class="short-line"></span> WORKSPACE RESERVATIONS</p>
-        <h1>จองโต๊ะทำงาน</h1>
-        <p class="lede">เลือกวันที่ ช่วงเวลา และโต๊ะที่คุณต้องการ แล้วดูรายละเอียดการจองได้ในที่เดียว</p>
-        <a class="hero-link" href="#reserve">เลือกโต๊ะว่าง <span aria-hidden="true">↓</span></a>
+  <main id="main" class="workspace">
+    <header class="dashboard__welcome page-heading">
+      <h1>จองโต๊ะทำงาน</h1>
+      <p>เลือกวัน รอบเวลา และหมายเลขโต๊ะที่ต้องการใช้</p>
+    </header>
+
+    <div class="booking-layout" id="reserve">
+      <div class="booking-form">
+        <section class="booking-section" aria-labelledby="schedule-heading">
+          <h2 id="schedule-heading" class="booking-section__title">วันและเวลาเข้าใช้</h2>
+          <div class="schedule-fields">
+            <div class="form-group">
+              <label for="day">วันที่เข้าใช้</label>
+              <input type="date" id="day" required>
+            </div>
+            <div>
+              <div id="time-label" class="field-label">รอบเวลา <span class="muted"> (เวลาไทย)</span></div>
+              <div id="slots" class="slot-grid" role="group" aria-labelledby="time-label"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="booking-section" aria-labelledby="desks-heading">
+          <div class="section-heading">
+            <h2 id="desks-heading" class="booking-section__title">ห้องและโต๊ะว่าง</h2>
+            <span id="freshness" class="updated" role="status">กำลังโหลดผังโต๊ะ…</span>
+          </div>
+          <div id="zones" class="room-tabs" role="group" aria-label="เลือกห้อง"></div>
+          <div class="map-heading">
+            <h3 id="zone-title">ผังโต๊ะ</h3>
+            <span id="zone-count"></span>
+          </div>
+          <div id="desk-map" class="desk-grid" role="group" aria-label="เลือกโต๊ะในห้อง"></div>
+          <div class="map-key">
+            <span><i aria-hidden="true"></i>ว่าง</span>
+            <span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span>
+            <span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span>
+            <small>เลือกได้มากกว่าหนึ่งโต๊ะ</small>
+          </div>
+        </section>
       </div>
-      <figure class="hero-picture"><img src="/meeting_room.png" alt="ภาพประกอบบรรยากาศโต๊ะทำงานร่วมกัน" fetchpriority="high">
-        <figcaption><span class="picture-tick"></span> พื้นที่ทำงานร่วมกัน</figcaption></figure>
-    </section>
-    <section id="reserve" aria-labelledby="reserve-heading">
-      <div class="section-head"><div><p class="eyebrow ink-light">BOOK A DESK</p><h2 id="reserve-heading">เลือกวันและโต๊ะ</h2></div>
-        <span id="freshness" class="live" role="status">กำลังโหลดผังโต๊ะ…</span></div>
-      <div class="booking-layout">
-        <div class="picker">
-          <section class="step"><div class="step-title"><span class="number">01</span><h3>วันและเวลา</h3></div>
-            <label class="field day-field" for="day">วันที่เข้าใช้<input type="date" id="day" required></label>
-            <div class="field"><span id="time-label">ช่วงเวลา <small>เวลาประเทศไทย</small></span><div id="slots" class="slot-grid" role="group" aria-labelledby="time-label"></div></div>
-          </section>
-          <section class="step"><div class="step-title"><span class="number">02</span><h3>เลือกโต๊ะ</h3></div>
-            <p class="muted step-help">เลือกโซน แล้วแตะหมายเลขโต๊ะ เลือกได้มากกว่าหนึ่งโต๊ะ</p>
-            <div id="zones" class="zones" role="group" aria-label="โซนที่นั่ง"></div>
-            <div class="map-head"><strong id="zone-title">ผังโต๊ะ</strong><span id="zone-count"></span></div>
-            <div id="desk-map" class="desk-grid" role="group" aria-label="โต๊ะในโซน"></div>
-            <div class="legend"><span><b></b>ว่าง</span><span><b class="sel"></b>เลือกแล้ว</span><span><b class="used"></b>ไม่ว่าง</span></div>
-          </section>
-        </div>
-        <aside class="summary"><p class="eyebrow">YOUR RESERVATION</p><h3>สรุปการจอง</h3>
-          <dl class="details"><div><dt>วันที่</dt><dd id="sum-day">—</dd></div><div><dt>ช่วงเวลา</dt><dd id="sum-time">—</dd></div><div><dt>โต๊ะที่เลือก</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div><div><dt>ราคาต่อโต๊ะ / รอบ</dt><dd id="unit-price">—</dd></div></dl>
-          <div class="total"><span>ยอดชำระเดโม</span><strong id="total">฿0</strong></div>
-          <button id="reserve-button" class="primary" type="button" disabled>จองโต๊ะและไปชำระ <span>→</span></button>
-          <p class="caption"><span aria-hidden="true">◷</span> กันโต๊ะให้สูงสุด 30 นาทีระหว่างรอชำระเดโม ไม่มีการเรียกเก็บเงินจริง</p>
-          <p id="booking-message" class="notice" role="alert" hidden></p>
-        </aside>
-      </div>
-    </section></main>
-  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+
+      <aside class="booking-section summary" aria-labelledby="summary-heading">
+        <h2 id="summary-heading" class="booking-section__title">สรุปการจอง</h2>
+        <dl class="details">
+          <div><dt>วันที่เข้าใช้</dt><dd id="sum-day">—</dd></div>
+          <div><dt>รอบเวลา</dt><dd id="sum-time">—</dd></div>
+          <div><dt>ห้องและโต๊ะ</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div>
+          <div><dt>ราคาต่อโต๊ะต่อรอบ</dt><dd id="unit-price">—</dd></div>
+        </dl>
+        <div class="amount"><span>ยอดชำระเดโม</span><strong id="total">฿0</strong></div>
+        <button id="reserve-button" class="btn-apply" type="button" disabled>จองและไปชำระเดโม</button>
+        <p class="fine-print">ระบบกันโต๊ะให้สูงสุด 30 นาที การชำระเงินเป็นแบบจำลอง</p>
+        <p id="booking-message" class="notice" role="alert" hidden></p>
+      </aside>
+    </div>
+  </main>
   <script type="module" src="/reserve.js"></script>
 </body>
 </html>
