@@ -1,300 +1,53 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description"
-    content="SpaceHub — Premium co-working space in Bangkok. Flexible desks, meeting rooms, and a vibrant community for professionals.">
-  <title>SpaceHub — Modern Co-Working Space</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183d33">
+  <title>จองโต๊ะทำงาน · SpaceHub</title>
+  <link rel="stylesheet" href="/space.css">
 </head>
-
-<body>
-
-  <!-- Navbar -->
-  <nav class="navbar" id="navbar">
-    <a href="index.html" class="navbar__logo">
-      <div class="navbar__logo-icon">⬡</div>
-      SpaceHub
-    </a>
-    <div class="navbar__links">
-      <a href="#features">Features</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#testimonials">Reviews</a>
-      <a href="login.html" class="btn-outline">Sign In</a>
-      <a href="register.html" class="btn-primary">Get Started</a>
-    </div>
-  </nav>
-
-  <!-- Hero -->
-  <section class="hero">
-    <div class="hero__shapes">
-      <div class="hero__shape"></div>
-      <div class="hero__shape"></div>
-      <div class="hero__shape"></div>
-    </div>
-    <div class="hero__content">
-      <div class="hero__badge">✦ Now Open — Limited Membership Available</div>
-      <h1 class="hero__title">
-        Your Work.<br><span>Reimagined.</span>
-      </h1>
-      <p class="hero__subtitle">
-        A premium co-working space designed for focus, collaboration, and growth.
-        Flexible desks, private offices, and meeting rooms — all in one place.
-      </p>
-      <div class="hero__actions">
-        <a href="register.html" class="btn btn--white">Create Account →</a>
-        <a href="#features" class="btn btn--ghost">Learn More ↓</a>
+<body data-page="reserve">
+  <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+  <header id="site-header"></header>
+  <main id="main" class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="short-line"></span> WORKSPACE RESERVATIONS</p>
+        <h1>จองโต๊ะทำงาน</h1>
+        <p class="lede">เลือกวันที่ ช่วงเวลา และโต๊ะที่คุณต้องการ แล้วดูรายละเอียดการจองได้ในที่เดียว</p>
+        <a class="hero-link" href="#reserve">เลือกโต๊ะว่าง <span aria-hidden="true">↓</span></a>
       </div>
-    </div>
-  </section>
-
-  <!-- Trusted By / Stats Bar -->
-  <section class="stats">
-    <div class="stats__inner">
-      <div class="stat">
-        <div class="stat__number">500+</div>
-        <div class="stat__label">Active Members</div>
-      </div>
-      <div class="stat">
-        <div class="stat__number">50+</div>
-        <div class="stat__label">Private Offices</div>
-      </div>
-      <div class="stat">
-        <div class="stat__number">12</div>
-        <div class="stat__label">Meeting Rooms</div>
-      </div>
-      <div class="stat">
-        <div class="stat__number">24/7</div>
-        <div class="stat__label">Building Access</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Features -->
-  <section class="features" id="features">
-    <div class="features__inner">
-      <div class="section-header">
-        <div class="section-header__tag">Why SpaceHub</div>
-        <h2 class="section-header__title">Everything You Need to Succeed</h2>
-        <p class="section-header__desc">
-          We've designed every detail to help you do your best work — from blazing-fast internet to barista-quality
-          coffee.
-        </p>
-      </div>
-      <div class="features__grid">
-        <div class="feature-card">
-          <div class="feature-card__icon">📶</div>
-          <h3 class="feature-card__title">Ultra-Fast Wi-Fi</h3>
-          <p class="feature-card__desc">
-            Enterprise-grade internet with dedicated bandwidth so you never drop a call or lose a connection.
-          </p>
+      <figure class="hero-picture"><img src="/meeting_room.png" alt="ภาพประกอบบรรยากาศโต๊ะทำงานร่วมกัน" fetchpriority="high">
+        <figcaption><span class="picture-tick"></span> พื้นที่ทำงานร่วมกัน</figcaption></figure>
+    </section>
+    <section id="reserve" aria-labelledby="reserve-heading">
+      <div class="section-head"><div><p class="eyebrow ink-light">BOOK A DESK</p><h2 id="reserve-heading">เลือกวันและโต๊ะ</h2></div>
+        <span id="freshness" class="live" role="status">กำลังโหลดผังโต๊ะ…</span></div>
+      <div class="booking-layout">
+        <div class="picker">
+          <section class="step"><div class="step-title"><span class="number">01</span><h3>วันและเวลา</h3></div>
+            <label class="field day-field" for="day">วันที่เข้าใช้<input type="date" id="day" required></label>
+            <div class="field"><span id="time-label">ช่วงเวลา <small>เวลาประเทศไทย</small></span><div id="slots" class="slot-grid" role="group" aria-labelledby="time-label"></div></div>
+          </section>
+          <section class="step"><div class="step-title"><span class="number">02</span><h3>เลือกโต๊ะ</h3></div>
+            <p class="muted step-help">เลือกโซน แล้วแตะหมายเลขโต๊ะ เลือกได้มากกว่าหนึ่งโต๊ะ</p>
+            <div id="zones" class="zones" role="group" aria-label="โซนที่นั่ง"></div>
+            <div class="map-head"><strong id="zone-title">ผังโต๊ะ</strong><span id="zone-count"></span></div>
+            <div id="desk-map" class="desk-grid" role="group" aria-label="โต๊ะในโซน"></div>
+            <div class="legend"><span><b></b>ว่าง</span><span><b class="sel"></b>เลือกแล้ว</span><span><b class="used"></b>ไม่ว่าง</span></div>
+          </section>
         </div>
-        <div class="feature-card">
-          <div class="feature-card__icon">🏢</div>
-          <h3 class="feature-card__title">Meeting Rooms</h3>
-          <p class="feature-card__desc">
-            Fully equipped rooms with displays, whiteboards, and video conferencing — bookable by the hour.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-card__icon">☕</div>
-          <h3 class="feature-card__title">Café &amp; Lounge</h3>
-          <p class="feature-card__desc">
-            Complimentary coffee, tea, and snacks. Relax in our lounge between deep work sessions.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-card__icon">🔐</div>
-          <h3 class="feature-card__title">24/7 Secure Access</h3>
-          <p class="feature-card__desc">
-            Secure keycard access around the clock. Work on your schedule, not ours.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-card__icon">🤝</div>
-          <h3 class="feature-card__title">Community Events</h3>
-          <p class="feature-card__desc">
-            Weekly meetups, workshops, and networking events to help you grow your professional circle.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-card__icon">🖨️</div>
-          <h3 class="feature-card__title">Print &amp; Mail</h3>
-          <p class="feature-card__desc">
-            High-speed printers, scanners, and a dedicated business mailing address included.
-          </p>
-        </div>
+        <aside class="summary"><p class="eyebrow">YOUR RESERVATION</p><h3>สรุปการจอง</h3>
+          <dl class="details"><div><dt>วันที่</dt><dd id="sum-day">—</dd></div><div><dt>ช่วงเวลา</dt><dd id="sum-time">—</dd></div><div><dt>โต๊ะที่เลือก</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div><div><dt>ราคาต่อโต๊ะ / รอบ</dt><dd id="unit-price">—</dd></div></dl>
+          <div class="total"><span>ยอดชำระเดโม</span><strong id="total">฿0</strong></div>
+          <button id="reserve-button" class="primary" type="button" disabled>จองโต๊ะและไปชำระ <span>→</span></button>
+          <p class="caption"><span aria-hidden="true">◷</span> กันโต๊ะให้สูงสุด 30 นาทีระหว่างรอชำระเดโม ไม่มีการเรียกเก็บเงินจริง</p>
+          <p id="booking-message" class="notice" role="alert" hidden></p>
+        </aside>
       </div>
-    </div>
-  </section>
-
-  <!-- Pricing -->
-  <section class="home-pricing" id="pricing">
-    <div class="home-pricing__inner">
-      <div class="section-header">
-        <div class="section-header__tag">Membership Plans</div>
-        <h2 class="section-header__title">Simple, Transparent Pricing</h2>
-        <p class="section-header__desc">
-          Choose the plan that works for you. No hidden fees, cancel anytime.
-        </p>
-      </div>
-      <div class="home-pricing__grid">
-        <div class="pricing-card">
-          <div class="pricing-card__header">
-            <h3>Day Pass</h3>
-            <p>Perfect for trying us out</p>
-          </div>
-          <div class="pricing-card__price">฿15<span>/day</span></div>
-          <ul class="pricing-card__features">
-            <li>✓ Hot desk access</li>
-            <li>✓ High-speed Wi-Fi</li>
-            <li>✓ Coffee & tea</li>
-            <li>✓ Lounge access</li>
-          </ul>
-          <a href="register.html" class="pricing-card__btn">Get Started</a>
-        </div>
-        <div class="pricing-card pricing-card--featured">
-          <div class="pricing-card__popular">Most Popular</div>
-          <div class="pricing-card__header">
-            <h3>Monthly</h3>
-            <p>For dedicated professionals</p>
-          </div>
-          <div class="pricing-card__price">฿299<span>/month</span></div>
-          <ul class="pricing-card__features">
-            <li>✓ Dedicated desk</li>
-            <li>✓ 24/7 building access</li>
-            <li>✓ All refreshments</li>
-            <li>✓ 20 hrs meeting room/mo</li>
-            <li>✓ Printing & mail service</li>
-            <li>✓ Community events</li>
-          </ul>
-          <a href="register.html" class="pricing-card__btn pricing-card__btn--primary">Get Started</a>
-        </div>
-        <div class="pricing-card">
-          <div class="pricing-card__header">
-            <h3>Annual</h3>
-            <p>Best value for teams</p>
-          </div>
-          <div class="pricing-card__price">฿2,999<span>/year</span></div>
-          <ul class="pricing-card__features">
-            <li>✓ Private office</li>
-            <li>✓ 24/7 access</li>
-            <li>✓ Unlimited meeting rooms</li>
-            <li>✓ All amenities</li>
-            <li>✓ Priority support</li>
-            <li>✓ Dedicated account manager</li>
-          </ul>
-          <a href="register.html" class="pricing-card__btn">Get Started</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Testimonials -->
-  <section class="testimonials" id="testimonials">
-    <div class="testimonials__inner">
-      <div class="section-header">
-        <div class="section-header__tag">Testimonials</div>
-        <h2 class="section-header__title">What Our Members Say</h2>
-        <p class="section-header__desc">
-          Join hundreds of professionals who love working at SpaceHub.
-        </p>
-      </div>
-      <div class="testimonials__grid">
-        <div class="testimonial-card">
-          <div class="testimonial-card__stars">★★★★★</div>
-          <p class="testimonial-card__text">
-            "SpaceHub completely transformed how I work. The environment is professional, quiet when you need it, and
-            vibrant during community events."
-          </p>
-          <div class="testimonial-card__author">
-            <div class="testimonial-card__avatar">S</div>
-            <div>
-              <div class="testimonial-card__name">Somchai T.</div>
-              <div class="testimonial-card__role">Freelance Designer</div>
-            </div>
-          </div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-card__stars">★★★★★</div>
-          <p class="testimonial-card__text">
-            "The meeting rooms are fantastic for client calls. Fast Wi-Fi, great coffee, and the location is incredibly
-            convenient. Highly recommended!"
-          </p>
-          <div class="testimonial-card__author">
-            <div class="testimonial-card__avatar">P</div>
-            <div>
-              <div class="testimonial-card__name">Ploy M.</div>
-              <div class="testimonial-card__role">Startup Founder</div>
-            </div>
-          </div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-card__stars">★★★★★</div>
-          <p class="testimonial-card__text">
-            "Moving our small team here was the best decision. The private office is well-equipped and the community is
-            incredibly supportive."
-          </p>
-          <div class="testimonial-card__author">
-            <div class="testimonial-card__avatar">N</div>
-            <div>
-              <div class="testimonial-card__name">Nat K.</div>
-              <div class="testimonial-card__role">Tech Lead, StartupXYZ</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA Section -->
-  <section class="cta-section">
-    <div class="cta-section__inner">
-      <h2 class="cta-section__title">Ready to Elevate Your Workspace?</h2>
-      <p class="cta-section__desc">Join SpaceHub today and experience the future of work. Your first day is on us.</p>
-      <div class="cta-section__actions">
-        <a href="register.html" class="btn btn--white">Create Free Account →</a>
-        <a href="login.html" class="btn btn--ghost">Already a Member? Sign In</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="footer__inner">
-      <div class="footer__brand">
-        <h3>⬡ SpaceHub</h3>
-        <p>A premium co-working space for professionals, freelancers, and startups. Built for focus, designed for
-          collaboration.</p>
-      </div>
-      <div class="footer__col">
-        <h4>Quick Links</h4>
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="login.html">Sign In</a>
-        <a href="register.html">Create Account</a>
-      </div>
-      <div class="footer__col">
-        <h4>Contact</h4>
-        <a href="#">hello@spacehub.co</a>
-        <a href="#">+66 2 123 4567</a>
-        <a href="#">123 Innovation Rd, Bangkok</a>
-      </div>
-    </div>
-    <div class="footer__bottom">
-      &copy; 2025 SpaceHub. All rights reserved.
-    </div>
-  </footer>
-
-  <script>
-    // Navbar scroll effect
-    window.addEventListener('scroll', () => {
-      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
-    });
-  </script>
-
+    </section></main>
+  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <script type="module" src="/reserve.js"></script>
 </body>
-
 </html>

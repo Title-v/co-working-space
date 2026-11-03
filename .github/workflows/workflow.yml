@@ -1,6 +1,16 @@
 name: CI/CD Pipeline
 
 on:
+  workflow_dispatch:
+    inputs:
+      sonar:
+        description: Run the configured SonarCloud scan
+        type: boolean
+        default: false
+      deploy:
+        description: Publish the image and call the configured Render deploy hook
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -17,6 +27,20 @@ jobs:
   ci:
     name: CI — Lint & Build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: spacehub_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:test@localhost:5432/spacehub_test
+      BOOKING_TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/spacehub_test
+      BOOKING_TEST_URL: http://localhost:3000
+      ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 
     steps:
       - name: Checkout code
@@ -30,12 +54,18 @@ jobs:
           cache-dependency-path: implementations/package-lock.json
 
       - name: Install dependencies
-        working-directory: ./implementations
         run: npm ci
 
-      - name: Lint check
-        working-directory: ./implementations
-        run: npm run lint
+      - name: Build and test
+        run: |
+          npm run build
+          npm test
+
+      - name: Exercise the reservation lifecycle against Postgres
+        run: |
+          npm start > "$RUNNER_TEMP/spacehub.log" 2>&1 &
+          curl --fail --silent --show-error --retry 20 --retry-delay 1 --retry-connrefused http://localhost:3000/api/bookings/settings > /dev/null
+          npm run test:booking
 
       - name: Build Docker image (test)
         run: docker build -t $(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]'):test ./implementations
@@ -45,6 +75,7 @@ jobs:
   # ─────────────────────────────────────
   sonarqube:
     name: SonarQube Analysis
+    if: github.event_name == 'workflow_dispatch' && inputs.sonar
     runs-on: ubuntu-latest
     needs: ci
 
@@ -81,7 +112,7 @@ jobs:
     name: CD — Deploy to Render
     runs-on: ubuntu-latest
     needs: ci
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy
 
     permissions:
       contents: read

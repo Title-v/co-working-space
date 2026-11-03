@@ -4,14 +4,20 @@ const postgres = require('postgres');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const { encrypt, decrypt } = require('./lib/crypto');
-const { requireRole } = require('./lib/auth');
+const { authenticated, sessionUser, signIn, signOut } = require('./lib/auth');
+const { bookingRoutes, slots, bookingWindow } = require('./lib/bookings');
 const { startExpiryJob } = require('./lib/expiry');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.SPACEHUB_HOST || '127.0.0.1';
 
 // Middleware
-app.use(express.json());
+app.disable('x-powered-by');
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.use(express.json({ limit: '32kb' }));
+app.get('/booking.html', (req, res) => res.redirect('/#reserve'));
+app.get('/dashboard.html', (req, res) => res.redirect('/my-bookings.html'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database connection
@@ -23,7 +29,7 @@ if (process.env.DATABASE_URL) {
 
 // Getter for lazy sql access (used by middleware registered at load time)
 const getSql = () => sql;
-getSql._isGetter = true;
+
 
 // Allow tests to inject a mock sql
 function setSql(mockSql) {
@@ -36,16 +42,6 @@ const PRICING = {
   month: 299,
   year: 2999
 };
-
-// ── Time Slots ──
-const TIME_SLOTS = [
-  { label: '08:00 - 10:00', startTime: '08:00', endTime: '10:00' },
-  { label: '10:00 - 12:00', startTime: '10:00', endTime: '12:00' },
-  { label: '12:00 - 14:00', startTime: '12:00', endTime: '14:00' },
-  { label: '14:00 - 16:00', startTime: '14:00', endTime: '16:00' },
-  { label: '16:00 - 18:00', startTime: '16:00', endTime: '18:00' },
-  { label: 'Full Day (08:00 - 18:00)', startTime: '08:00', endTime: '18:00' }
-];
 
 const TOTAL_DESKS = 50;
 
@@ -85,6 +81,12 @@ function initDB(connection) {
     await sql`ALTER TABLE users ALTER COLUMN last_name TYPE TEXT`;
     await sql`ALTER TABLE users ALTER COLUMN phone TYPE TEXT`;
     await sql`ALTER TABLE users ALTER COLUMN address TYPE TEXT`;
+
+    await sql`CREATE TABLE IF NOT EXISTS web_sessions (
+      token_hash CHAR(64) PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL
+    )`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_web_sessions_expiry ON web_sessions(expires_at)`;
 
     // Memberships table
     await sql`
@@ -170,6 +172,10 @@ function initDB(connection) {
       END $$
     `;
 
+    await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_baht NUMERIC(10,2),
+      ADD COLUMN IF NOT EXISTS request_key UUID`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_request ON bookings(user_id, request_key) WHERE request_key IS NOT NULL`;
+
     // Booking-Desks junction table
     await sql`
       CREATE TABLE IF NOT EXISTS booking_desks (
@@ -223,11 +229,19 @@ function initDB(connection) {
     await sql`CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`;
 
+    // Keep the existing desk IDs and reservations when naming the original rooms.
+    await sql`UPDATE desks SET zone = CASE zone
+      WHEN 'Zone A' THEN 'ห้องแสงเช้า' WHEN 'Zone B' THEN 'ห้องร่มไทร' ELSE 'ห้องลานฟ้า' END
+      WHERE zone IN ('Zone A', 'Zone B', 'Zone C')`;
+    await sql`UPDATE bookings b SET total_baht=COALESCE(
+      (SELECT p.amount FROM payments p WHERE p.id=b.payment_id), b.num_desks * ${PRICING.day}::integer
+    ) WHERE b.total_baht IS NULL`;
+
     // ── Seed desks ──
     const deskCount = await sql`SELECT COUNT(*) as count FROM desks`;
     if (Number(deskCount[0].count) === 0) {
       for (let i = 1; i <= TOTAL_DESKS; i++) {
-        const zone = i <= 20 ? 'Zone A' : i <= 40 ? 'Zone B' : 'Zone C';
+        const zone = i <= 20 ? 'ห้องแสงเช้า' : i <= 40 ? 'ห้องร่มไทร' : 'ห้องลานฟ้า';
         await sql`INSERT INTO desks (label, zone) VALUES (${`Desk ${i}`}, ${zone})`;
       }
       console.log('Seeded 50 desks');
@@ -270,448 +284,68 @@ function initDB(connection) {
 // AUTH ROUTES
 // ──────────────────────────────────────────────
 
-// POST /api/register
-app.post('/api/register', async (req, res) => {
+function publicUser(user) {
+  return { id: user.id, role: user.role, firstName: decrypt(user.first_name), lastName: decrypt(user.last_name),
+    email: user.email, phone: decrypt(user.phone), address: decrypt(user.address) };
+}
+
+app.post('/api/register', async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, address, password, role } = req.body;
-
-    if (!firstName || !lastName || !email || !phone || !address || !password) {
-      return res.status(400).json({ error: 'All fields are required.' });
+    const { firstName, lastName, phone, password } = req.body || {};
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (![firstName, lastName, phone].every(value => typeof value === 'string' && value.trim() && value.length <= 100) ||
+        !/^\S+@\S+\.\S+$/.test(email) || email.length > 254 ||
+        typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password) > 72) {
+      return res.status(400).json({ error: 'กรุณากรอกข้อมูลติดต่อและรหัสผ่านอย่างน้อย 8 ตัวอักษรให้ครบ' });
     }
-
-    const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
-    if (existing.length > 0) {
-      return res.status(409).json({ error: 'An account with this email already exists.' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    const userRole = role || 'customer';
-
-    await sql`
-      INSERT INTO users (first_name, last_name, email, phone, address, password, role)
-      VALUES (${encrypt(firstName)}, ${encrypt(lastName)}, ${email}, ${encrypt(phone)}, ${encrypt(address)}, ${hashedPassword}, ${userRole})
-    `;
-
-    res.status(201).json({ message: 'Account created successfully!' });
+    const existing = await sql`SELECT id FROM users WHERE lower(email)=${email} LIMIT 1`;
+    if (existing.length) return res.status(409).json({ error: 'อีเมลนี้มีบัญชีอยู่แล้ว' });
+    const hash = await bcrypt.hash(password, 10);
+    await sql`INSERT INTO users (first_name,last_name,email,phone,address,password,role)
+      VALUES (${encrypt(firstName.trim())},${encrypt(lastName.trim())},${email},${encrypt(phone.trim())},'',${hash},'customer')`;
+    res.status(201).json({ message: 'สร้างบัญชีแล้ว' });
   } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Server error. Please try again.' });
+    if (err.code === '23505') return res.status(409).json({ error: 'อีเมลนี้มีบัญชีอยู่แล้ว' });
+    next(err);
   }
 });
 
-// POST /api/login
-app.post('/api/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required.' });
-    }
-
-    const users = await sql`SELECT * FROM users WHERE email = ${email}`;
-    if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
-
-    const user = users[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
-
-    res.json({
-      message: 'Login successful!',
-      user: {
-        id: user.id,
-        firstName: decrypt(user.first_name),
-        lastName: decrypt(user.last_name),
-        email: user.email,
-        phone: decrypt(user.phone),
-        address: decrypt(user.address),
-        role: user.role || 'customer'
-      }
-    });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Server error. Please try again.' });
+app.post('/api/login', async (req, res, next) => {
+  const { email, password } = req.body || {};
+  if (typeof email !== 'string' || !email.trim() || typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: 'กรุณากรอกอีเมลและรหัสผ่าน' });
   }
+  try {
+    const [user] = await sql`SELECT * FROM users WHERE lower(email)=lower(${email.trim()})
+      ORDER BY (email=${email.trim()}) DESC, id LIMIT 1`;
+    if (!user || !await bcrypt.compare(password, user.password)) {
+      return res.status(401).json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
+    }
+    const profile = publicUser(user);
+    await signIn(sql, req, res, user.id);
+    res.json({ user: profile });
+  } catch (err) { next(err); }
 });
 
-// ──────────────────────────────────────────────
-// MEMBERSHIP ROUTES
-// ──────────────────────────────────────────────
-
-// POST /api/membership
-app.post('/api/membership', async (req, res) => {
+app.get('/api/session', async (req, res, next) => {
   try {
-    const { userId, type, duration } = req.body;
-
-    if (!userId || !type || !duration) {
-      return res.status(400).json({ error: 'userId, type, and duration are required.' });
-    }
-    if (!['day', 'month', 'year'].includes(type)) {
-      return res.status(400).json({ error: 'Type must be day, month, or year.' });
-    }
-    if (duration < 1 || !Number.isInteger(Number(duration))) {
-      return res.status(400).json({ error: 'Duration must be a positive integer.' });
-    }
-
-    // Block only if there is a truly active (non-expired) membership using Bangkok timezone
-    const activeExisting = await sql`
-      SELECT id FROM memberships
-      WHERE user_id = ${userId}
-        AND status = 'active'
-        AND end_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date
-    `;
-    if (activeExisting.length > 0) {
-      return res.status(409).json({ error: 'You already have an active membership. It must expire before you can renew.' });
-    }
-
-    // Auto-cancel any abandoned pending_payment or expired active memberships
-    await sql`
-      UPDATE memberships SET status = 'cancelled'
-      WHERE user_id = ${userId}
-        AND (
-          status = 'pending_payment'
-          OR (status = 'active' AND end_date < (NOW() AT TIME ZONE 'Asia/Bangkok')::date)
-        )
-    `;
-
-    const unitPrice = PRICING[type];
-    const totalPrice = unitPrice * Number(duration);
-
-    const membership = await sql`
-      INSERT INTO memberships (user_id, type, duration, price_paid, status, end_date)
-      VALUES (${userId}, ${type}, ${Number(duration)}, ${totalPrice}, 'pending_payment',
-              CURRENT_DATE + ${type === 'day' ? sql`CAST(${Number(duration)} || ' days' AS INTERVAL)` :
-        type === 'month' ? sql`CAST(${Number(duration)} || ' months' AS INTERVAL)` :
-          sql`CAST(${Number(duration)} || ' years' AS INTERVAL)`})
-      RETURNING *
-    `;
-
-    res.status(201).json({
-      message: 'Membership created. Please complete payment.',
-      membership: membership[0]
-    });
-  } catch (err) {
-    console.error('Membership error:', err);
-    res.status(500).json({ error: 'Server error. Please try again.' });
-  }
+    const user = await sessionUser(sql, req);
+    res.json({ user: user ? publicUser(user) : null });
+  } catch (err) { next(err); }
 });
-
-// POST /api/membership/:membershipId/pay
-app.post('/api/membership/:membershipId/pay', async (req, res) => {
-  try {
-    const { membershipId } = req.params;
-    const { userId, paymentMethod } = req.body;
-
-    if (!userId || !paymentMethod) {
-      return res.status(400).json({ error: 'userId and paymentMethod are required.' });
-    }
-    if (!['credit_card', 'bank_transfer', 'truewallet'].includes(paymentMethod)) {
-      return res.status(400).json({ error: 'Invalid payment method.' });
-    }
-
-    const memberships = await sql`
-      SELECT * FROM memberships WHERE id = ${membershipId} AND user_id = ${userId}
-    `;
-    if (memberships.length === 0) {
-      return res.status(404).json({ error: 'Membership not found.' });
-    }
-    const membership = memberships[0];
-
-    if (membership.status !== 'pending_payment') {
-      return res.status(400).json({ error: 'Membership is not pending payment.' });
-    }
-
-    // Simulate bank transfer delay
-    if (paymentMethod === 'bank_transfer') {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
-    const amount = Number(membership.price_paid);
-
-    const payment = await sql`
-      INSERT INTO payments (user_id, membership_id, amount, payment_type, payment_method)
-      VALUES (${userId}, ${membershipId}, ${amount}, 'subscription', ${paymentMethod})
-      RETURNING *
-    `;
-
-    await sql`
-      UPDATE memberships SET status = 'active' WHERE id = ${membershipId}
-    `;
-
-    res.json({
-      message: 'Membership payment successful! Your membership is now active.',
-      membership: { ...membership, status: 'active' },
-      payment: payment[0]
-    });
-  } catch (err) {
-    console.error('Membership payment error:', err);
-    res.status(500).json({ error: 'Server error. Please try again.' });
-  }
-});
-
-// GET /api/membership/:userId
-app.get('/api/membership/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const memberships = await sql`
-      SELECT * FROM memberships WHERE user_id = ${userId}
-      ORDER BY
-        CASE status
-          WHEN 'pending_payment' THEN 1
-          WHEN 'active' THEN 2
-          ELSE 3
-        END,
-        end_date DESC,
-        created_at DESC
-      LIMIT 1
-    `;
-    const payments = await sql`
-      SELECT * FROM payments WHERE user_id = ${userId} ORDER BY created_at DESC
-    `;
-    res.json({
-      membership: memberships.length > 0 ? memberships[0] : null,
-      payments
-    });
-  } catch (err) {
-    console.error('Get membership error:', err);
-    res.status(500).json({ error: 'Server error. Please try again.' });
-  }
-});
-
-// GET /api/pricing
+app.post('/api/logout', (req, res, next) => signOut(sql, req, res).catch(next));
 app.get('/api/pricing', (req, res) => res.json(PRICING));
+app.get('/api/timeslots', (req, res) => res.json(slots));
+app.use('/api/bookings', bookingRoutes(getSql, PRICING.day));
 
-// GET /api/timeslots
-app.get('/api/timeslots', (req, res) => res.json(TIME_SLOTS));
-
-// ──────────────────────────────────────────────
-// BOOKING ROUTES
-// ──────────────────────────────────────────────
-
-// GET /api/bookings/availability?date=YYYY-MM-DD
-app.get('/api/bookings/availability', async (req, res) => {
+// Historical membership records remain available to their owner.
+app.get('/api/membership/:userId', authenticated(getSql), async (req, res, next) => {
+  if (Number(req.params.userId) !== req.user.id) return res.sendStatus(403);
   try {
-    const { date } = req.query;
-    if (!date) return res.status(400).json({ error: 'Date is required.' });
-
-    const slots = [];
-    for (const slot of TIME_SLOTS) {
-      const booked = await sql`
-        SELECT COUNT(DISTINCT bd.desk_id) as booked_count
-        FROM bookings b
-        JOIN booking_desks bd ON bd.booking_id = b.id
-        WHERE b.booking_date = ${date}
-          AND b.status IN ('pending', 'confirmed', 'checked_in')
-          AND b.start_time < ${slot.endTime}::time
-          AND b.end_time > ${slot.startTime}::time
-      `;
-      const bookedCount = Number(booked[0].booked_count);
-      slots.push({ ...slot, totalDesks: TOTAL_DESKS, availableDesks: TOTAL_DESKS - bookedCount, bookedDesks: bookedCount });
-    }
-    res.json({ date, slots });
-  } catch (err) {
-    console.error('Availability error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-// POST /api/bookings
-app.post('/api/bookings', async (req, res) => {
-  try {
-    const { userId, date, startTime, endTime, numDesks } = req.body;
-    if (!userId || !date || !startTime || !endTime || !numDesks) {
-      return res.status(400).json({ error: 'All booking fields are required.' });
-    }
-
-    const membership = await sql`
-      SELECT id FROM memberships
-      WHERE user_id = ${userId} AND status = 'active' AND end_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date
-    `;
-    if (membership.length === 0) {
-      return res.status(400).json({ error: 'Active membership required to book.' });
-    }
-
-    const bookedDeskIds = await sql`
-      SELECT DISTINCT bd.desk_id
-      FROM bookings b JOIN booking_desks bd ON bd.booking_id = b.id
-      WHERE b.booking_date = ${date}
-        AND b.status IN ('pending', 'confirmed', 'checked_in')
-        AND b.start_time < ${endTime}::time
-        AND b.end_time > ${startTime}::time
-    `;
-    const bookedIds = bookedDeskIds.map(r => r.desk_id);
-
-    let availableDesks;
-    if (bookedIds.length > 0) {
-      availableDesks = await sql`
-        SELECT id, label FROM desks WHERE is_active = TRUE AND id NOT IN ${sql(bookedIds)} ORDER BY id LIMIT ${Number(numDesks)}
-      `;
-    } else {
-      availableDesks = await sql`
-        SELECT id, label FROM desks WHERE is_active = TRUE ORDER BY id LIMIT ${Number(numDesks)}
-      `;
-    }
-
-    if (availableDesks.length < Number(numDesks)) {
-      return res.status(400).json({ error: `Not enough desks available. Only ${availableDesks.length} desk(s) free.` });
-    }
-
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-
-    const booking = await sql`
-      INSERT INTO bookings (user_id, booking_date, start_time, end_time, num_desks, status, expires_at)
-      VALUES (${userId}, ${date}, ${startTime}::time, ${endTime}::time, ${Number(numDesks)}, 'pending', ${expiresAt})
-      RETURNING *
-    `;
-
-    for (const desk of availableDesks) {
-      await sql`INSERT INTO booking_desks (booking_id, desk_id) VALUES (${booking[0].id}, ${desk.id})`;
-    }
-
-    res.status(201).json({
-      message: 'Booking created! Please complete payment within 30 minutes.',
-      booking: { ...booking[0], expires_at: expiresAt.toISOString(), desks: availableDesks.map(d => d.label) }
-    });
-  } catch (err) {
-    console.error('Booking error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-// POST /api/bookings/:bookingId/pay
-app.post('/api/bookings/:bookingId/pay', async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const { userId, paymentMethod } = req.body;
-
-    if (!userId || !paymentMethod) {
-      return res.status(400).json({ error: 'userId and paymentMethod are required.' });
-    }
-    if (!['credit_card', 'bank_transfer', 'truewallet'].includes(paymentMethod)) {
-      return res.status(400).json({ error: 'Invalid payment method.' });
-    }
-
-    const bookings = await sql`SELECT * FROM bookings WHERE id = ${bookingId} AND user_id = ${userId}`;
-    if (bookings.length === 0) return res.status(404).json({ error: 'Booking not found.' });
-
-    const booking = bookings[0];
-    if (booking.status !== 'pending') {
-      return res.status(400).json({ error: `Booking is ${booking.status}. Cannot pay.` });
-    }
-    if (booking.expires_at && new Date(booking.expires_at) <= new Date()) {
-      await sql`UPDATE bookings SET status = 'expired' WHERE id = ${bookingId}`;
-      return res.status(400).json({ error: 'Booking has expired. Please create a new booking.' });
-    }
-
-    if (paymentMethod === 'bank_transfer') {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
-    const amount = booking.num_desks * PRICING.day;
-
-    const payment = await sql`
-      INSERT INTO payments (user_id, booking_id, amount, payment_type, payment_method)
-      VALUES (${userId}, ${bookingId}, ${amount}, 'booking', ${paymentMethod})
-      RETURNING *
-    `;
-
-    await sql`
-      UPDATE bookings SET status = 'confirmed', payment_id = ${payment[0].id}, expires_at = NULL WHERE id = ${bookingId}
-    `;
-
-    res.json({
-      message: 'Payment confirmed! Your booking is now confirmed.',
-      booking: { ...booking, status: 'confirmed' },
-      payment: payment[0]
-    });
-  } catch (err) {
-    console.error('Booking payment error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-// GET /api/bookings/user/:userId
-app.get('/api/bookings/user/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const bookings = await sql`
-      SELECT b.*,
-        COALESCE(
-          (SELECT json_agg(json_build_object('id', d.id, 'label', d.label))
-           FROM booking_desks bd JOIN desks d ON d.id = bd.desk_id
-           WHERE bd.booking_id = b.id), '[]'
-        ) as desks,
-        (SELECT checked_in_at FROM checkins WHERE booking_id = b.id LIMIT 1) as checked_in_at
-      FROM bookings b WHERE b.user_id = ${userId}
-      ORDER BY b.booking_date DESC, b.start_time DESC
-    `;
-    const result = bookings.map(b => ({
-      ...b,
-      expires_at: b.expires_at ? new Date(b.expires_at).toISOString() : null
-    }));
-    res.json({ bookings: result });
-  } catch (err) {
-    console.error('Get bookings error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-// POST /api/bookings/:bookingId/cancel
-app.post('/api/bookings/:bookingId/cancel', async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const { userId } = req.body;
-
-    const bookings = await sql`SELECT * FROM bookings WHERE id = ${bookingId} AND user_id = ${userId}`;
-    if (bookings.length === 0) return res.status(404).json({ error: 'Booking not found.' });
-
-    const booking = bookings[0];
-    if (booking.status === 'cancelled' || booking.status === 'expired') {
-      return res.status(400).json({ error: `Booking is already ${booking.status}.` });
-    }
-
-    // Pending (unpaid) bookings can always be cancelled
-    // Confirmed (paid) bookings require 1+ day notice for refund
-    let refundEligible = false;
-    if (booking.status === 'confirmed') {
-      const bookingDate = new Date(booking.booking_date);
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-
-      if (bookingDate < tomorrow) {
-        return res.status(400).json({ error: 'Cannot cancel less than 1 day before the reservation. No refund available.' });
-      }
-      refundEligible = true;
-    }
-
-    await sql`UPDATE bookings SET status = 'cancelled' WHERE id = ${bookingId}`;
-    res.json({ message: 'Booking cancelled successfully.', refundEligible });
-  } catch (err) {
-    console.error('Cancel booking error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-// GET /api/bookings/:bookingId — fetch a single booking by ID
-app.get('/api/bookings/:bookingId', async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const bookings = await sql`
-      SELECT * FROM bookings WHERE id = ${bookingId}
-    `;
-    if (bookings.length === 0) {
-      return res.status(404).json({ error: 'Booking not found.' });
-    }
-    res.json({ booking: bookings[0] });
-  } catch (err) {
-    console.error('Get booking error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
+    const [membership] = await sql`SELECT * FROM memberships WHERE user_id=${req.user.id} ORDER BY created_at DESC, id DESC LIMIT 1`;
+    const payments = await sql`SELECT * FROM payments WHERE user_id=${req.user.id} ORDER BY id DESC`;
+    res.json({ membership: membership || null, payments });
+  } catch (err) { next(err); }
 });
 
 // ──────────────────────────────────────────────
@@ -719,7 +353,7 @@ app.get('/api/bookings/:bookingId', async (req, res) => {
 // ──────────────────────────────────────────────
 
 // GET /api/employee/reservations?date=YYYY-MM-DD&userId=X
-app.get('/api/employee/reservations', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
+app.get('/api/employee/reservations', authenticated(getSql, 'employee', 'manager'), async (req, res) => {
   try {
     const { date } = req.query;
     if (!date) return res.status(400).json({ error: 'Date is required.' });
@@ -749,27 +383,24 @@ app.get('/api/employee/reservations', requireRole(getSql, 'employee', 'manager')
 });
 
 // POST /api/employee/checkin
-app.post('/api/employee/checkin', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
+app.post('/api/employee/checkin', authenticated(getSql, 'employee', 'manager'), async (req, res, next) => {
+  const id = Number(req.body?.bookingId);
+  if (!Number.isSafeInteger(id) || id < 1 || id > 2147483647) return res.status(400).json({ error: 'Invalid booking number.' });
   try {
-    const { bookingId, employeeId } = req.body;
-    const bookings = await sql`SELECT * FROM bookings WHERE id = ${bookingId}`;
-    if (bookings.length === 0) return res.status(404).json({ error: 'Booking not found.' });
-
-    if (bookings[0].status !== 'confirmed') {
-      return res.status(400).json({ error: `Booking status is '${bookings[0].status}'. Must be confirmed to check in.` });
-    }
-
-    await sql`INSERT INTO checkins (booking_id, checked_in_by) VALUES (${bookingId}, ${employeeId})`;
-    await sql`UPDATE bookings SET status = 'checked_in' WHERE id = ${bookingId}`;
+    const checked = await sql.begin(async tx => {
+      const [booking] = await tx`UPDATE bookings SET status='checked_in'
+        WHERE id=${id} AND status='confirmed' AND booking_date=(now() AT TIME ZONE 'Asia/Bangkok')::date RETURNING id`;
+      if (!booking) return false;
+      await tx`INSERT INTO checkins (booking_id, checked_in_by) VALUES (${id}, ${req.user.id})`;
+      return true;
+    });
+    if (!checked) return res.status(409).json({ error: 'Only a confirmed booking for today can be checked in.' });
     res.json({ message: 'Customer checked in successfully.' });
-  } catch (err) {
-    console.error('Checkin error:', err);
-    res.status(500).json({ error: 'Server error.' });
-  }
+  } catch (err) { next(err); }
 });
 
 // GET /api/employee/equipment
-app.get('/api/employee/equipment', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
+app.get('/api/employee/equipment', authenticated(getSql, 'employee', 'manager'), async (req, res) => {
   try {
     const equipment = await sql`SELECT * FROM equipment ORDER BY category, name`;
     res.json({ equipment });
@@ -780,7 +411,7 @@ app.get('/api/employee/equipment', requireRole(getSql, 'employee', 'manager'), a
 });
 
 // PUT /api/employee/equipment/:equipmentId
-app.put('/api/employee/equipment/:equipmentId', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
+app.put('/api/employee/equipment/:equipmentId', authenticated(getSql, 'employee', 'manager'), async (req, res) => {
   try {
     const { equipmentId } = req.params;
     const { totalQuantity, availableQuantity } = req.body;
@@ -800,14 +431,15 @@ app.put('/api/employee/equipment/:equipmentId', requireRole(getSql, 'employee', 
 });
 
 // POST /api/employee/expenses
-app.post('/api/employee/expenses', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
+app.post('/api/employee/expenses', authenticated(getSql, 'employee', 'manager'), async (req, res) => {
   try {
-    const { employeeId, category, description, amount, expenseDate } = req.body;
+    const { category, description, amount, expenseDate } = req.body;
+    const employeeId = req.user.id;
     if (!category || !amount) return res.status(400).json({ error: 'Category and amount are required.' });
 
     const expense = await sql`
       INSERT INTO expenses (recorded_by, category, description, amount, expense_date)
-      VALUES (${employeeId}, ${category}, ${description || ''}, ${Number(amount)}, ${expenseDate || new Date().toISOString().split('T')[0]})
+      VALUES (${employeeId}, ${category}, ${description || ''}, ${Number(amount)}, ${expenseDate || bookingWindow().today})
       RETURNING *
     `;
     res.status(201).json({ message: 'Expense recorded.', expense: expense[0] });
@@ -818,10 +450,10 @@ app.post('/api/employee/expenses', requireRole(getSql, 'employee', 'manager'), a
 });
 
 // GET /api/employee/expenses?date=YYYY-MM-DD&userId=X
-app.get('/api/employee/expenses', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
+app.get('/api/employee/expenses', authenticated(getSql, 'employee', 'manager'), async (req, res) => {
   try {
     const { date } = req.query;
-    const whereDate = date || new Date().toISOString().split('T')[0];
+    const whereDate = date || bookingWindow().today;
     const expenses = await sql`
       SELECT e.*, u.first_name, u.last_name
       FROM expenses e JOIN users u ON u.id = e.recorded_by
@@ -838,46 +470,31 @@ app.get('/api/employee/expenses', requireRole(getSql, 'employee', 'manager'), as
   }
 });
 
-// GET /api/employee/cctv
-app.get('/api/employee/cctv', requireRole(getSql, 'employee', 'manager'), async (req, res) => {
-  res.json({
-    cameras: [
-      { id: 1, name: 'Main Entrance', location: 'Ground Floor', status: 'online' },
-      { id: 2, name: 'Lobby', location: 'Ground Floor', status: 'online' },
-      { id: 3, name: 'Zone A - Open Area', location: 'Floor 1', status: 'online' },
-      { id: 4, name: 'Zone B - Open Area', location: 'Floor 2', status: 'online' },
-      { id: 5, name: 'Zone C - Meeting Rooms', location: 'Floor 3', status: 'online' },
-      { id: 6, name: 'Parking Lot', location: 'Basement', status: 'offline' }
-    ]
-  });
-});
-
-// ──────────────────────────────────────────────
 // MANAGER ROUTES
 // ──────────────────────────────────────────────
 
 // GET /api/manager/revenue?period=day&date=YYYY-MM-DD or ?period=month&month=YYYY-MM&userId=X
-app.get('/api/manager/revenue', requireRole(getSql, 'manager'), async (req, res) => {
+app.get('/api/manager/revenue', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const { period, date, month } = req.query;
     if (period === 'day' && date) {
       const breakdown = await sql`
         SELECT payment_type, payment_method, SUM(amount) as total, COUNT(*) as count
-        FROM payments WHERE created_at::date = ${date} GROUP BY payment_type, payment_method
+        FROM payments WHERE ((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok')::date = ${date} GROUP BY payment_type, payment_method
       `;
       const totalRow = await sql`
         SELECT COALESCE(SUM(amount), 0) as total_revenue, COUNT(*) as payment_count
-        FROM payments WHERE created_at::date = ${date}
+        FROM payments WHERE ((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok')::date = ${date}
       `;
       res.json({ period: 'day', date, ...totalRow[0], breakdown });
     } else if (period === 'month' && month) {
       const breakdown = await sql`
         SELECT payment_type, payment_method, SUM(amount) as total, COUNT(*) as count
-        FROM payments WHERE to_char(created_at, 'YYYY-MM') = ${month} GROUP BY payment_type, payment_method
+        FROM payments WHERE to_char(((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM') = ${month} GROUP BY payment_type, payment_method
       `;
       const totalRow = await sql`
         SELECT COALESCE(SUM(amount), 0) as total_revenue, COUNT(*) as payment_count
-        FROM payments WHERE to_char(created_at, 'YYYY-MM') = ${month}
+        FROM payments WHERE to_char(((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM') = ${month}
       `;
       res.json({ period: 'month', month, ...totalRow[0], breakdown });
     } else {
@@ -890,16 +507,16 @@ app.get('/api/manager/revenue', requireRole(getSql, 'manager'), async (req, res)
 });
 
 // GET /api/manager/report?month=YYYY-MM&userId=X
-app.get('/api/manager/report', requireRole(getSql, 'manager'), async (req, res) => {
+app.get('/api/manager/report', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const { month } = req.query;
     if (!month) return res.status(400).json({ error: 'Month (YYYY-MM) is required.' });
 
-    const revenue = await sql`SELECT COALESCE(SUM(amount), 0) as total_revenue FROM payments WHERE to_char(created_at, 'YYYY-MM') = ${month}`;
+    const revenue = await sql`SELECT COALESCE(SUM(amount), 0) as total_revenue FROM payments WHERE to_char(((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM') = ${month}`;
     const expenseTotal = await sql`SELECT COALESCE(SUM(amount), 0) as total_expenses FROM expenses WHERE to_char(expense_date, 'YYYY-MM') = ${month}`;
     const dailyRevenue = await sql`
-      SELECT created_at::date as date, SUM(amount) as revenue, COUNT(*) as payments
-      FROM payments WHERE to_char(created_at, 'YYYY-MM') = ${month} GROUP BY created_at::date ORDER BY date
+      SELECT ((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok')::date as date, SUM(amount) as revenue, COUNT(*) as payments
+      FROM payments WHERE to_char(((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM') = ${month} GROUP BY ((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok')::date ORDER BY date
     `;
     const dailyExpenses = await sql`
       SELECT expense_date as date, SUM(amount) as expenses
@@ -922,7 +539,7 @@ app.get('/api/manager/report', requireRole(getSql, 'manager'), async (req, res) 
 });
 
 // GET /api/manager/employees?userId=X
-app.get('/api/manager/employees', requireRole(getSql, 'manager'), async (req, res) => {
+app.get('/api/manager/employees', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const employees = await sql`
       SELECT id, first_name, last_name, email, phone, address, role, created_at
@@ -940,7 +557,7 @@ app.get('/api/manager/employees', requireRole(getSql, 'manager'), async (req, re
 });
 
 // POST /api/manager/employees
-app.post('/api/manager/employees', requireRole(getSql, 'manager'), async (req, res) => {
+app.post('/api/manager/employees', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const { firstName, lastName, email, phone, address, password } = req.body;
     if (!firstName || !lastName || !email || !phone || !address || !password) {
@@ -965,7 +582,7 @@ app.post('/api/manager/employees', requireRole(getSql, 'manager'), async (req, r
 });
 
 // PUT /api/manager/employees/:employeeId
-app.put('/api/manager/employees/:employeeId', requireRole(getSql, 'manager'), async (req, res) => {
+app.put('/api/manager/employees/:employeeId', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { firstName, lastName, email, phone, address } = req.body;
@@ -989,7 +606,7 @@ app.put('/api/manager/employees/:employeeId', requireRole(getSql, 'manager'), as
 });
 
 // DELETE /api/manager/employees/:employeeId
-app.delete('/api/manager/employees/:employeeId', requireRole(getSql, 'manager'), async (req, res) => {
+app.delete('/api/manager/employees/:employeeId', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const { employeeId } = req.params;
     const result = await sql`DELETE FROM users WHERE id = ${employeeId} AND role = 'employee' RETURNING id`;
@@ -1002,13 +619,13 @@ app.delete('/api/manager/employees/:employeeId', requireRole(getSql, 'manager'),
 });
 
 // GET /api/manager/summary?date=YYYY-MM-DD&userId=X
-app.get('/api/manager/summary', requireRole(getSql, 'manager'), async (req, res) => {
+app.get('/api/manager/summary', authenticated(getSql, 'manager'), async (req, res) => {
   try {
     const { date } = req.query;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || bookingWindow().today;
 
     const bookingCount = await sql`SELECT COUNT(*) as count FROM bookings WHERE booking_date = ${targetDate} AND status IN ('confirmed', 'checked_in')`;
-    const income = await sql`SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE created_at::date = ${targetDate}`;
+    const income = await sql`SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE ((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bangkok')::date = ${targetDate}`;
     const expenseTotal = await sql`SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE expense_date = ${targetDate}`;
     const memberCount = await sql`SELECT COUNT(*) as count FROM users WHERE role = 'customer'`;
 
@@ -1026,10 +643,12 @@ app.get('/api/manager/summary', requireRole(getSql, 'manager'), async (req, res)
   }
 });
 
-// ── Simulated Banking API ──
-app.post('/api/bank/transfer', async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  res.json({ success: true, transactionId: 'TXN' + Date.now(), message: 'Bank transfer processed successfully (simulated).' });
+app.use('/api', (req, res) => res.status(404).json({ error: 'ไม่พบ API นี้' }));
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'ข้อมูล JSON ไม่ถูกต้อง' });
+  console.error('Request failed', req.method, req.path, err.code || err.name);
+  res.status(500).json({ error: 'บันทึกรายการไม่สำเร็จ กรุณาลองอีกครั้ง' });
 });
 
 // ──────────────────────────────────────────────
@@ -1051,7 +670,7 @@ async function start() {
   }
   console.log('Database initialized — all tables ready');
   startExpiryJob(sql);
-  app.listen(PORT, () => {
+  app.listen(PORT, HOST, () => {
     console.log(`Server running at http://localhost:${PORT}`);
   });
 }

@@ -15,7 +15,7 @@
                 SpaceHub
             </a>
             <div class="dashboard__nav-links">
-                <span class="nav-role-badge nav-role-badge--manager">Manager Portal</span>
+                <span class="nav-role-badge nav-role-badge--manager">Manager Portal · Demo payments</span><a class="nav-link" href="/employee-dashboard.html">Reservations &amp; check-in</a>
             </div>
             <div class="profile-menu">
                 <button class="profile-menu__avatar" onclick="toggleProfileMenu()">
@@ -153,17 +153,19 @@
 
     <script src="app.js"></script>
     <script>
-        const currentUser = requireAuth(['manager']);
-        if (currentUser) {
+        let currentUser;
+        requireAuth(['manager']).then(user => {
+            if (!user) return;
+            currentUser = user;
             document.getElementById('avatarInitial').textContent = currentUser.firstName.charAt(0).toUpperCase();
-            const today = new Date().toISOString().split('T')[0];
+            const today = bangkokToday();
             const month = today.substring(0, 7);
             document.getElementById('revDate').value = today;
             document.getElementById('revMonth').value = month;
             document.getElementById('reportMonth').value = month;
             loadOverview();
             loadEmployees();
-        }
+        }).catch(() => showToast('Cannot load your session. Please reload.', 'error'));
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
@@ -180,14 +182,14 @@
 
         async function loadOverview() {
             try {
-                const res = await fetch(`/api/manager/summary?userId=${currentUser.id}`);
+                const res = await fetch(`/api/manager/summary`);
                 const data = await res.json();
                 document.getElementById('todayRevenue').textContent = formatCurrency(data.totalIncome);
                 document.getElementById('todayBookings').textContent = data.reservationCount;
                 document.getElementById('totalMembers').textContent = data.totalMembers;
 
-                const month = new Date().toISOString().substring(0, 7);
-                const monthRes = await fetch(`/api/manager/revenue?period=month&month=${month}&userId=${currentUser.id}`);
+                const month = bangkokToday().substring(0, 7);
+                const monthRes = await fetch(`/api/manager/revenue?period=month&month=${month}`);
                 const monthData = await monthRes.json();
                 document.getElementById('monthRevenue').textContent = formatCurrency(monthData.total_revenue);
             } catch (err) {
@@ -200,10 +202,10 @@
             let url;
             if (period === 'day') {
                 const date = document.getElementById('revDate').value;
-                url = `/api/manager/revenue?period=day&date=${date}&userId=${currentUser.id}`;
+                url = `/api/manager/revenue?period=day&date=${date}`;
             } else {
                 const month = document.getElementById('revMonth').value;
-                url = `/api/manager/revenue?period=month&month=${month}&userId=${currentUser.id}`;
+                url = `/api/manager/revenue?period=month&month=${month}`;
             }
 
             try {
@@ -228,8 +230,8 @@
                             <tbody>
                                 ${data.breakdown.map(b => `
                                     <tr>
-                                        <td>${b.payment_type}</td>
-                                        <td>${b.payment_method || '-'}</td>
+                                        <td>${escapeHtml(b.payment_type)}</td>
+                                        <td>${escapeHtml(b.payment_method || '-')}</td>
                                         <td>${formatCurrency(b.total)}</td>
                                         <td>${b.count}</td>
                                     </tr>
@@ -248,7 +250,7 @@
             if (!month) { showToast('Select a month.', 'error'); return; }
 
             try {
-                const res = await fetch(`/api/manager/report?month=${month}&userId=${currentUser.id}`);
+                const res = await fetch(`/api/manager/report?month=${month}`);
                 const data = await res.json();
                 const container = document.getElementById('reportResult');
 
@@ -306,7 +308,7 @@
 
         async function loadEmployees() {
             try {
-                const res = await fetch(`/api/manager/employees?userId=${currentUser.id}`);
+                const res = await fetch(`/api/manager/employees`);
                 const data = await res.json();
                 const container = document.getElementById('employeesList');
 
@@ -321,9 +323,9 @@
                         <tbody>
                             ${data.employees.map(e => `
                                 <tr>
-                                    <td>${e.first_name} ${e.last_name}</td>
-                                    <td>${e.email}</td>
-                                    <td>${e.phone}</td>
+                                    <td>${escapeHtml(e.first_name)} ${escapeHtml(e.last_name)}</td>
+                                    <td>${escapeHtml(e.email)}</td>
+                                    <td>${escapeHtml(e.phone)}</td>
                                     <td>
                                         <button class="btn-small btn-small--danger" onclick="deleteEmployee(${e.id})">Remove</button>
                                     </td>
@@ -353,7 +355,7 @@
                 const res = await fetch('/api/manager/employees', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ firstName, lastName, email, phone, address, password, userId: currentUser.id })
+                    body: JSON.stringify({ firstName, lastName, email, phone, address, password })
                 });
                 const data = await res.json();
                 if (!res.ok) { showToast(data.error, 'error'); return; }
@@ -369,7 +371,7 @@
         async function deleteEmployee(empId) {
             if (!confirm('Are you sure you want to remove this employee?')) return;
             try {
-                const res = await fetch(`/api/manager/employees/${empId}?userId=${currentUser.id}`, { method: 'DELETE' });
+                const res = await fetch(`/api/manager/employees/${empId}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (!res.ok) { showToast(data.error, 'error'); return; }
                 showToast('Employee removed.', 'success');

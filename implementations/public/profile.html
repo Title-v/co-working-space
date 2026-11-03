@@ -1,95 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Your SpaceHub profile — view and manage your account details.">
-    <title>Profile — SpaceHub</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183d33">
+  <title>บัญชีของฉัน · SpaceHub</title>
+  <link rel="stylesheet" href="/space.css">
 </head>
-
-<body>
-
-    <div class="dashboard">
-        <!-- Nav -->
-        <nav class="dashboard__nav">
-            <a href="index.html" class="dashboard__nav-logo">
-                <div class="navbar__logo-icon" style="width:32px;height:32px;font-size:0.9rem;">⬡</div>
-                SpaceHub
-            </a>
-            <div class="profile-menu">
-                <button class="profile-menu__avatar" id="profileToggle" onclick="toggleProfileMenu()">
-                    <span id="avatarInitial">U</span>
-                </button>
-                <div class="profile-menu__dropdown" id="profileDropdown">
-                    <a href="dashboard.html" class="profile-menu__item">
-                        <span class="profile-menu__item-icon">📊</span> Dashboard
-                    </a>
-                    <button class="profile-menu__item profile-menu__item--danger" onclick="handleLogout()">
-                        <span class="profile-menu__item-icon">🚪</span> Sign Out
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Profile Content -->
-        <div class="dashboard__content">
-            <div class="profile-header">
-                <div class="profile-header__avatar" id="profileAvatar">U</div>
-                <div class="profile-header__info">
-                    <h1 id="profileFullName">—</h1>
-                    <p id="profileEmail">—</p>
-                </div>
-            </div>
-
-            <div class="profile-details">
-                <h2 class="profile-details__title">Account Details</h2>
-                <div class="dashboard__info-grid">
-                    <div class="info-card">
-                        <div class="info-card__label">First Name</div>
-                        <div class="info-card__value" id="infoFirstName">—</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-card__label">Last Name</div>
-                        <div class="info-card__value" id="infoLastName">—</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-card__label">Email</div>
-                        <div class="info-card__value" id="infoEmail">—</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-card__label">Phone</div>
-                        <div class="info-card__value" id="infoPhone">—</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-card__label">Address</div>
-                        <div class="info-card__value" id="infoAddress">—</div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <script src="app.js"></script>
-    <script>
-        const user = requireAuth(['customer', 'employee', 'manager']);
-        if (user) {
-            document.getElementById('avatarInitial').textContent = user.firstName.charAt(0).toUpperCase();
-            document.getElementById('profileAvatar').textContent = user.firstName.charAt(0).toUpperCase();
-            document.getElementById('profileFullName').textContent = `${user.firstName} ${user.lastName}`;
-            document.getElementById('profileEmail').textContent = user.email;
-            document.getElementById('infoFirstName').textContent = user.firstName;
-            document.getElementById('infoLastName').textContent = user.lastName;
-            document.getElementById('infoEmail').textContent = user.email;
-            document.getElementById('infoPhone').textContent = user.phone;
-            document.getElementById('infoAddress').textContent = user.address;
-        }
-    </script>
-
+<body data-page="profile">
+  <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+  <header id="site-header"></header>
+  <main id="main" class="shell"><section class="page-title"><p class="eyebrow ink-light">ACCOUNT</p><h1>บัญชีของฉัน</h1></section><section class="ticket checkout" id="profile-details" aria-live="polite">กำลังโหลด…</section></main>
+  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <script type="module" src="/account.js"></script>
 </body>
-
 </html>

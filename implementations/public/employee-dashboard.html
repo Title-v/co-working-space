@@ -36,7 +36,6 @@
                 <button class="tab-nav__item" onclick="switchTab('checkin')">Check-In</button>
                 <button class="tab-nav__item" onclick="switchTab('equipment')">Equipment</button>
                 <button class="tab-nav__item" onclick="switchTab('expenses')">Expenses</button>
-                <button class="tab-nav__item" onclick="switchTab('cctv')">CCTV</button>
             </div>
 
             <!-- Reservations Tab -->
@@ -114,16 +113,7 @@
                 </div>
             </div>
 
-            <!-- CCTV Tab -->
-            <div class="tab-content" id="tab_cctv" style="display:none;">
-                <div class="booking-section">
-                    <h2 class="booking-section__title">CCTV Monitoring</h2>
-                    <p class="booking-section__desc">Security camera feeds from the co-working space (simulated).</p>
-                    <div id="cctvGrid" class="cctv-grid">
-                        <p class="loading-text">Loading camera feeds...</p>
-                    </div>
-                </div>
-            </div>
+
         </div>
     </div>
 
@@ -131,17 +121,18 @@
 
     <script src="app.js"></script>
     <script>
-        const currentUser = requireAuth(['employee', 'manager']);
-        if (currentUser) {
+        let currentUser;
+        requireAuth(['employee', 'manager']).then(user => {
+            if (!user) return;
+            currentUser = user;
             document.getElementById('avatarInitial').textContent = currentUser.firstName.charAt(0).toUpperCase();
-            document.getElementById('resDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('expDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('resDate').value = bangkokToday();
+            document.getElementById('expDate').value = bangkokToday();
             loadReservations();
             loadCheckins();
             loadEquipment();
             loadExpenses();
-            loadCCTV();
-        }
+        }).catch(() => showToast('Cannot load your session. Please reload.', 'error'));
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
@@ -154,7 +145,7 @@
             const date = document.getElementById('resDate').value;
             if (!date) return;
             try {
-                const res = await fetch(`/api/employee/reservations?date=${date}&userId=${currentUser.id}`);
+                const res = await fetch(`/api/employee/reservations?date=${date}`);
                 const data = await res.json();
                 const container = document.getElementById('reservationsList');
 
@@ -173,10 +164,10 @@
                                 const desks = typeof r.desks === 'string' ? JSON.parse(r.desks) : r.desks;
                                 const deskLabels = Array.isArray(desks) ? desks.map(d => d.label).join(', ') : 'N/A';
                                 return `<tr>
-                                    <td>${r.first_name} ${r.last_name}</td>
-                                    <td>${r.email}</td>
+                                    <td>${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</td>
+                                    <td>${escapeHtml(r.email)}</td>
                                     <td>${r.start_time?.substring(0,5)} - ${r.end_time?.substring(0,5)}</td>
-                                    <td>${deskLabels}</td>
+                                    <td>${escapeHtml(deskLabels)}</td>
                                     <td><span class="status-badge status-badge--${r.status === 'checked_in' ? 'checked-in' : r.status}">${r.status}</span></td>
                                 </tr>`;
                             }).join('')}
@@ -189,9 +180,9 @@
         }
 
         async function loadCheckins() {
-            const today = new Date().toISOString().split('T')[0];
+            const today = bangkokToday();
             try {
-                const res = await fetch(`/api/employee/reservations?date=${today}&userId=${currentUser.id}`);
+                const res = await fetch(`/api/employee/reservations?date=${today}`);
                 const data = await res.json();
                 const container = document.getElementById('checkinList');
 
@@ -207,8 +198,8 @@
                     return `
                         <div class="checkin-card">
                             <div class="checkin-card__info">
-                                <div class="checkin-card__name">${r.first_name} ${r.last_name}</div>
-                                <div class="checkin-card__details">${r.start_time?.substring(0,5)} - ${r.end_time?.substring(0,5)} | ${deskLabels}</div>
+                                <div class="checkin-card__name">${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</div>
+                                <div class="checkin-card__details">${r.start_time?.substring(0,5)} - ${r.end_time?.substring(0,5)} | ${escapeHtml(deskLabels)}</div>
                             </div>
                             <button class="btn-checkin" onclick="checkInCustomer(${r.id})">Check In</button>
                         </div>
@@ -224,7 +215,7 @@
                 const res = await fetch('/api/employee/checkin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingId, employeeId: currentUser.id, userId: currentUser.id })
+                    body: JSON.stringify({ bookingId })
                 });
                 const data = await res.json();
                 if (!res.ok) { showToast(data.error, 'error'); return; }
@@ -238,7 +229,7 @@
 
         async function loadEquipment() {
             try {
-                const res = await fetch(`/api/employee/equipment?userId=${currentUser.id}`);
+                const res = await fetch(`/api/employee/equipment`);
                 const data = await res.json();
                 const container = document.getElementById('equipmentList');
 
@@ -250,8 +241,8 @@
                         <tbody>
                             ${data.equipment.map(eq => `
                                 <tr>
-                                    <td>${eq.name}</td>
-                                    <td>${eq.category}</td>
+                                    <td>${escapeHtml(eq.name)}</td>
+                                    <td>${escapeHtml(eq.category)}</td>
                                     <td><input type="number" value="${eq.total_quantity}" id="eq_total_${eq.id}" class="eq-input" min="0"></td>
                                     <td><input type="number" value="${eq.available_quantity}" id="eq_avail_${eq.id}" class="eq-input" min="0"></td>
                                     <td><button class="btn-small" onclick="updateEquipment(${eq.id})">Update</button></td>
@@ -269,10 +260,10 @@
             const total = parseInt(document.getElementById(`eq_total_${eqId}`).value);
             const available = parseInt(document.getElementById(`eq_avail_${eqId}`).value);
             try {
-                const res = await fetch(`/api/employee/equipment/${eqId}?userId=${currentUser.id}`, {
+                const res = await fetch(`/api/employee/equipment/${eqId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ totalQuantity: total, availableQuantity: available, userId: currentUser.id })
+                    body: JSON.stringify({ totalQuantity: total, availableQuantity: available })
                 });
                 const data = await res.json();
                 if (!res.ok) { showToast(data.error, 'error'); return; }
@@ -294,7 +285,7 @@
                 const res = await fetch('/api/employee/expenses', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ employeeId: currentUser.id, userId: currentUser.id, category, description, amount, expenseDate })
+                    body: JSON.stringify({ userId: currentUser.id, category, description, amount, expenseDate })
                 });
                 const data = await res.json();
                 if (!res.ok) { showToast(data.error, 'error'); return; }
@@ -308,9 +299,9 @@
         }
 
         async function loadExpenses() {
-            const today = new Date().toISOString().split('T')[0];
+            const today = bangkokToday();
             try {
-                const res = await fetch(`/api/employee/expenses?date=${today}&userId=${currentUser.id}`);
+                const res = await fetch(`/api/employee/expenses?date=${today}`);
                 const data = await res.json();
                 const container = document.getElementById('expensesList');
 
@@ -325,10 +316,10 @@
                         <tbody>
                             ${data.expenses.map(e => `
                                 <tr>
-                                    <td>${e.category}</td>
-                                    <td>${e.description || '-'}</td>
+                                    <td>${escapeHtml(e.category)}</td>
+                                    <td>${escapeHtml(e.description || '-')}</td>
                                     <td>${formatCurrency(e.amount)}</td>
-                                    <td>${e.first_name} ${e.last_name}</td>
+                                    <td>${escapeHtml(e.first_name)} ${escapeHtml(e.last_name)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -339,28 +330,6 @@
             }
         }
 
-        async function loadCCTV() {
-            try {
-                const res = await fetch(`/api/employee/cctv?userId=${currentUser.id}`);
-                const data = await res.json();
-                const container = document.getElementById('cctvGrid');
-
-                container.innerHTML = data.cameras.map(cam => `
-                    <div class="cctv-feed ${cam.status === 'offline' ? 'cctv-feed--offline' : ''}">
-                        <div class="cctv-feed__header">
-                            <span class="cctv-feed__name">${cam.name}</span>
-                            <span class="cctv-feed__status cctv-feed__status--${cam.status}">${cam.status.toUpperCase()}</span>
-                        </div>
-                        <div class="cctv-feed__screen">
-                            ${cam.status === 'online' ? '<div class="cctv-feed__live">LIVE</div>' : '<div class="cctv-feed__offline-text">NO SIGNAL</div>'}
-                        </div>
-                        <div class="cctv-feed__location">${cam.location}</div>
-                    </div>
-                `).join('');
-            } catch (err) {
-                document.getElementById('cctvGrid').innerHTML = '<p class="error-text">Failed to load CCTV feeds.</p>';
-            }
-        }
     </script>
 </body>
 </html>

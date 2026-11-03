@@ -1,7 +1,7 @@
 {
   "name": "coworking-space",
   "version": "1.0.0",
-  "description": "Co-working space welcome page with Neon PostgreSQL",
+  "description": "SpaceHub desk reservations with a demo payment flow and PostgreSQL",
   "main": "server.js",
   "files": [
     "server.js",

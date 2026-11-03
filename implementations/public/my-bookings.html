@@ -1,177 +1,20 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="View and manage your SpaceHub desk bookings.">
-    <title>My Bookings — SpaceHub</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183d33">
+  <title>การจองของฉัน · SpaceHub</title>
+  <link rel="stylesheet" href="/space.css">
 </head>
-
-<body>
-    <div class="dashboard">
-        <nav class="dashboard__nav">
-            <a href="index.html" class="dashboard__nav-logo">
-                <div class="navbar__logo-icon" style="width:32px;height:32px;font-size:0.9rem;">⬡</div>
-                SpaceHub
-            </a>
-            <div class="dashboard__nav-links">
-                <a href="dashboard.html" class="nav-link">Dashboard</a>
-                <a href="booking.html" class="nav-link">Book</a>
-                <a href="my-bookings.html" class="nav-link nav-link--active">My Bookings</a>
-            </div>
-            <div class="profile-menu">
-                <button class="profile-menu__avatar" onclick="toggleProfileMenu()">
-                    <span id="avatarInitial">U</span>
-                </button>
-                <div class="profile-menu__dropdown" id="profileDropdown">
-                    <a href="profile.html" class="profile-menu__item">
-                        <span class="profile-menu__item-icon">👤</span> Profile
-                    </a>
-                    <button class="profile-menu__item profile-menu__item--danger" onclick="handleLogout()">
-                        <span class="profile-menu__item-icon">🚪</span> Sign Out
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        <div class="dashboard__content">
-            <div class="dashboard__welcome">
-                <h1>My Bookings</h1>
-                <p>View your desk reservations and manage your bookings.</p>
-            </div>
-
-            <div id="bookingsList" class="bookings-list">
-                <p class="loading-text">Loading bookings...</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <script src="app.js"></script>
-    <script>
-        const currentUser = requireAuth(['customer']);
-        if (currentUser) {
-            document.getElementById('avatarInitial').textContent = currentUser.firstName.charAt(0).toUpperCase();
-            loadBookings();
-        }
-
-        async function loadBookings() {
-            try {
-                const res = await fetch(`/api/bookings/user/${currentUser.id}`);
-                const data = await res.json();
-
-                const container = document.getElementById('bookingsList');
-
-                if (!data.bookings || data.bookings.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state__icon">📋</div>
-                            <h3>No bookings yet</h3>
-                            <p>You haven't made any desk reservations.</p>
-                            <a href="booking.html" class="btn-apply" style="max-width:250px;margin:20px auto;display:block;text-align:center;text-decoration:none;">Book a Desk</a>
-                        </div>
-                    `;
-                    return;
-                }
-
-                container.innerHTML = data.bookings.map(b => {
-                    const desks = typeof b.desks === 'string' ? JSON.parse(b.desks) : b.desks;
-                    const deskLabels = Array.isArray(desks) ? desks.map(d => d.label).join(', ') : 'N/A';
-                    const statusClass = getStatusClass(b.status);
-                    const canCancel = canCancelBooking(b);
-                    const date = new Date(b.booking_date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-
-                    return `
-                        <div class="booking-card">
-                            <div class="booking-card__header">
-                                <div class="booking-card__date">${date}</div>
-                                <span class="status-badge status-badge--${statusClass}">${b.status}</span>
-                            </div>
-                            <div class="booking-card__details">
-                                <div class="booking-card__detail">
-                                    <span class="booking-card__label">Time</span>
-                                    <span>${b.start_time?.substring(0, 5)} - ${b.end_time?.substring(0, 5)}</span>
-                                </div>
-                                <div class="booking-card__detail">
-                                    <span class="booking-card__label">Desks</span>
-                                    <span>${b.num_desks} desk(s)</span>
-                                </div>
-                                <div class="booking-card__detail">
-                                    <span class="booking-card__label">Assigned</span>
-                                    <span>${deskLabels}</span>
-                                </div>
-                            </div>
-                            ${canCancel ? `
-                                <button class="btn-cancel" onclick="cancelBooking(${b.id})">Cancel Booking</button>
-                            ` : ''}
-                            ${b.status === 'pending' && b.expires_at ? `
-                                <div class="booking-card__expires">
-                                    Payment due by ${new Date(b.expires_at).toLocaleTimeString()}
-                                    <button class="btn-pay-link" onclick="goToBookingPayment(${b.id}, '${b.booking_date}', '${b.start_time}', '${b.end_time}', ${b.num_desks}, '${b.expires_at}')">Complete Payment</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }).join('');
-            } catch (err) {
-                console.error('Load bookings error:', err);
-                document.getElementById('bookingsList').innerHTML = '<p class="error-text">Failed to load bookings.</p>';
-            }
-        }
-
-        function getStatusClass(status) {
-            const map = { pending: 'pending', confirmed: 'confirmed', checked_in: 'checked-in', cancelled: 'cancelled', expired: 'expired' };
-            return map[status] || 'pending';
-        }
-
-        function canCancelBooking(booking) {
-            if (booking.status !== 'confirmed' && booking.status !== 'pending') return false;
-            // Pending (unpaid) bookings can always be cancelled
-            if (booking.status === 'pending') return true;
-            // Confirmed (paid) bookings require 1+ day notice
-            const bookingDate = new Date(booking.booking_date);
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(0, 0, 0, 0);
-            return bookingDate >= tomorrow;
-        }
-
-        function goToBookingPayment(bookingId, bookingDate, startTime, endTime, numDesks, expiresAt) {
-            sessionStorage.setItem('pendingPayment', JSON.stringify({
-                type: 'booking',
-                id: bookingId,
-                date: bookingDate,
-                startTime: startTime,
-                endTime: endTime,
-                numDesks: numDesks,
-                amount: numDesks * 15,
-                expiresAt: expiresAt
-            }));
-            window.location.href = `payment.html?type=booking&id=${bookingId}`;
-        }
-
-        async function cancelBooking(bookingId) {
-            if (!confirm('Are you sure you want to cancel this booking?')) return;
-
-            try {
-                const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUser.id })
-                });
-                const data = await res.json();
-
-                if (!res.ok) { showToast(data.error, 'error'); return; }
-                showToast(data.message, 'success');
-                loadBookings();
-            } catch (err) {
-                showToast('Failed to cancel booking.', 'error');
-            }
-        }
-    </script>
+<body data-page="mine">
+  <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+  <header id="site-header"></header>
+  <main id="main" class="shell">
+  <section class="page-title"><p class="eyebrow ink-light">MY RESERVATIONS</p><h1>การจองของฉัน</h1><p class="lede">ตรวจสถานะ ชำระเดโม หรือยกเลิกการจองก่อนถึงวันเข้าใช้</p></section>
+  <div class="list-head"><h2>รายการจอง</h2><a class="secondary" href="/#reserve">+ จองโต๊ะเพิ่ม</a></div>
+  <p class="notice" id="ticket-message" role="status" hidden></p><section id="ticket-list" class="ticket-list" aria-label="รายการจองของฉัน" aria-live="polite"><p class="muted">กำลังโหลดการจอง…</p></section></main>
+  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <script type="module" src="/tickets.js"></script>
 </body>
-
 </html>

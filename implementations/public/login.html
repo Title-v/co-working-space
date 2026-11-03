@@ -1,93 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Sign in to your SpaceHub co-working space account.">
-    <title>Sign In — SpaceHub</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183d33">
+  <title>เข้าสู่ระบบ · SpaceHub</title>
+  <link rel="stylesheet" href="/space.css">
 </head>
+<body data-page="login">
+  <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+  <header id="site-header"></header>
+  <main id="main" class="shell">
+  <div class="account-wrap"><div class="account-image" aria-hidden="true"><img src="/meeting_room.png" alt=""></div><section class="account-card">
+    <p class="eyebrow ink-light">SPACEHUB ACCOUNT</p><h1>เข้าสู่ระบบ</h1>
+    <p class="muted">เข้าสู่ระบบเพื่อยืนยันและดูการจองของคุณ</p>
+    <form id="account-form">
 
-<body>
-
-    <div class="auth-page">
-        <div class="auth-card">
-            <div class="auth-card__header">
-                <div class="auth-card__logo">⬡</div>
-                <h1 class="auth-card__title">Welcome Back</h1>
-                <p class="auth-card__subtitle">Sign in to your SpaceHub account</p>
-            </div>
-
-            <form id="loginForm" onsubmit="return handleLogin(event)">
-                <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <input type="email" id="email" placeholder="you@example.com" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required minlength="6">
-                </div>
-                <button type="submit" class="btn-submit" id="loginBtn">Sign In</button>
-            </form>
-
-            <div class="auth-card__footer">
-                Don't have an account? <a href="register.html">Create one</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <script src="app.js"></script>
-    <script>
-        async function handleLogin(e) {
-            e.preventDefault();
-            const btn = document.getElementById('loginBtn');
-            btn.classList.add('loading');
-            btn.textContent = 'Signing in...';
-
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    showToast(data.error, 'error');
-                    btn.classList.remove('loading');
-                    btn.textContent = 'Sign In';
-                    return;
-                }
-
-                // Store user in session
-                sessionStorage.setItem('user', JSON.stringify(data.user));
-                showToast('Login successful!', 'success');
-
-                setTimeout(() => {
-                    const role = data.user.role || 'customer';
-                    if (role === 'manager') {
-                        window.location.href = 'manager-dashboard.html';
-                    } else if (role === 'employee') {
-                        window.location.href = 'employee-dashboard.html';
-                    } else {
-                        window.location.href = 'dashboard.html';
-                    }
-                }, 800);
-            } catch (err) {
-                showToast('Connection error. Please try again.', 'error');
-                btn.classList.remove('loading');
-                btn.textContent = 'Sign In';
-            }
-        }
-    </script>
-
+      <label class="field">อีเมล<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
+      <label class="field">รหัสผ่าน<input type="password" name="password" autocomplete="current-password"  required></label>
+      <p class="notice" id="account-message" role="alert" hidden></p><button class="primary" type="submit">เข้าสู่ระบบ</button>
+    </form><p class="form-tail">ยังไม่มีบัญชี <a id="switch-account" href="/register.html">สมัครสมาชิก</a></p>
+  </section></div></main>
+  <footer class="footer shell"><b>SpaceHub</b><span>ระบบจองพื้นที่ทำงาน <i> / </i> เวลาประเทศไทย</span></footer>
+  <script type="module" src="/account.js"></script>
 </body>
-
 </html>
