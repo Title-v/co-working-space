@@ -181,14 +181,19 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
 
         it('counts actual desks and excludes overlapping reservations from full-day availability', async () => {
             mockSql.mockResolvedValueOnce([
-                {id:1,zone:'ห้องแสงเช้า',label:'Desk 1',busy:[['08:00','10:00']]},
-                {id:2,zone:'ห้องแสงเช้า',label:'Desk 2',busy:[]}
+                {kind:'desk',id:1,zone:'ห้องแสงเช้า',label:'Desk 1',busy:[['08:00','10:00']]},
+                {kind:'desk',id:2,zone:'ห้องแสงเช้า',label:'Desk 2',busy:[]},
+                {kind:'room',id:1,label:'ห้องพิกุล',capacity:2,hourly_rate:15,busy:[['10:00','12:00']]}
             ]);
             const {status,body} = await request(app).get('/api/bookings/availability').query({date:future});
             expect(status).toBe(200);
             expect(body.slots[0].availableIds).toEqual([2]);
             expect(body.slots[1].availableIds).toEqual([1,2]);
             expect(body.slots.at(-1).availableIds).toEqual([2]);
+            expect(body.privateRooms).toEqual([{id:1,name:'ห้องพิกุล',capacity:2,hourlyRate:15}]);
+            expect(body.slots[0].availableRoomIds).toEqual([1]);
+            expect(body.slots[1].availableRoomIds).toEqual([]);
+            expect(body.slots.at(-1).availableRoomIds).toEqual([]);
         });
 
         it.each(['2000-01-01','2099-01-01','2027-02-31','invalid'])('rejects unavailable dates %s', async date => {
@@ -198,6 +203,13 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
         it('rejects duplicate desk ids without creating a hold', async () => {
             mockAsRole('customer');
             const res=await signed().post('/api/bookings').send({date:future,startTime:'08:00',endTime:'10:00',deskIds:[1,1],requestKey:require('node:crypto').randomUUID()});
+            expect(res.status).toBe(400);
+            expect(mockSql).toHaveBeenCalledTimes(1);
+        });
+
+        it.each([{privateRoomId:0},{privateRoomId:[1,2]},{privateRoomId:1,deskIds:[1]}])('rejects invalid or mixed room requests', async selection => {
+            mockAsRole('customer');
+            const res=await signed().post('/api/bookings').send({date:future,startTime:'08:00',endTime:'10:00',requestKey:require('node:crypto').randomUUID(),...selection});
             expect(res.status).toBe(400);
             expect(mockSql).toHaveBeenCalledTimes(1);
         });

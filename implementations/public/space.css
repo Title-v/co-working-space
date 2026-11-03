@@ -168,6 +168,98 @@ button:disabled {
 .updated.stale {
   color: #8a4514;
 }
+.booking-kind {
+  border: 0;
+  margin: 0 0 17px;
+  padding: 0;
+}
+.booking-kind label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 6px 13px;
+  margin: 0 4px 5px 0;
+  border: 1px solid #c6cfda;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.booking-kind input,
+.private-option input {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.booking-kind label:has(:checked) {
+  color: var(--primary-dark);
+  border-color: var(--primary);
+  background: var(--light-blue);
+  font-weight: 600;
+}
+.private-intro {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  margin-bottom: 10px;
+  color: var(--gray-600);
+  font-size: 0.85rem;
+}
+.room-columns,
+.private-option {
+  display: grid;
+  grid-template-columns: 18px minmax(110px, 1fr) minmax(50px, 0.4fr) minmax(
+      82px,
+      0.5fr
+    ) 52px;
+  align-items: center;
+  column-gap: 9px;
+  padding: 9px 11px;
+}
+.room-columns {
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border-block: 1px solid var(--gray-200);
+  font-size: 0.78rem;
+}
+.room-columns span:first-child {
+  grid-column: span 2;
+}
+.private-option {
+  min-height: 43px;
+  border-bottom: 1px solid var(--gray-200);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.private-option strong {
+  font-weight: 600;
+}
+.private-price {
+  font-variant-numeric: tabular-nums;
+}
+.private-status {
+  color: #26633c;
+  font-size: 0.82rem;
+}
+.private-option:has(:checked) {
+  background: var(--light-blue);
+  color: var(--primary-dark);
+}
+.private-option:has(:focus-visible) {
+  outline: 2px solid var(--primary-dark);
+  outline-offset: -2px;
+}
+.private-option:has(:disabled) {
+  background: var(--gray-100);
+  color: #596478;
+  cursor: not-allowed;
+}
+.private-option:has(:disabled) .private-status {
+  color: #596478;
+}
+
 .schedule-fields {
   display: grid;
   grid-template-columns: minmax(145px, 0.85fr) minmax(0, 2fr);
@@ -603,6 +695,33 @@ button:disabled {
   }
 }
 @media (max-width: 520px) {
+  .room-columns {
+    display: none;
+  }
+  .private-option {
+    grid-template-columns: 18px 1fr auto;
+    grid-template-areas: 'radio name price' 'radio capacity state';
+    row-gap: 2px;
+  }
+  .private-option input {
+    grid-area: radio;
+  }
+  .private-name {
+    grid-area: name;
+  }
+  .private-capacity {
+    grid-area: capacity;
+    font-size: 0.8rem;
+  }
+  .private-price {
+    grid-area: price;
+    text-align: right;
+  }
+  .private-status {
+    grid-area: state;
+    text-align: right;
+  }
+
   .customer-nav .dashboard__nav-links {
     order: 3;
     flex-basis: 100%;

@@ -142,6 +142,21 @@ function initDB(connection) {
       )
     `;
 
+    await sql`CREATE TABLE IF NOT EXISTS private_rooms (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      capacity INTEGER NOT NULL CHECK (capacity > 0),
+      hourly_rate INTEGER NOT NULL CHECK (hourly_rate > 0),
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    )`;
+    await sql`INSERT INTO private_rooms (id, name, capacity, hourly_rate) VALUES
+      (1, 'ห้องพิกุล', 2, 15), (2, 'ห้องจำปี', 2, 15),
+      (3, 'ห้องมะลิ', 4, 30), (4, 'ห้องโมก', 4, 30),
+      (5, 'ห้องสารภี', 6, 45), (6, 'ห้องแก้ว', 6, 45),
+      (7, 'ห้องลำดวน', 8, 60), (8, 'ห้องพะยอม', 8, 60),
+      (9, 'ห้องอัญชัน', 10, 75), (10, 'ห้องราชพฤกษ์', 12, 90)
+      ON CONFLICT (id) DO NOTHING`;
+
     // Bookings table
     await sql`
       CREATE TABLE IF NOT EXISTS bookings (
@@ -175,6 +190,11 @@ function initDB(connection) {
     await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_baht NUMERIC(10,2),
       ADD COLUMN IF NOT EXISTS request_key UUID`;
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_request ON bookings(user_id, request_key) WHERE request_key IS NOT NULL`;
+
+    await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS private_room_id INTEGER REFERENCES private_rooms(id)
+      CHECK (private_room_id IS NULL OR (num_desks = 0 AND total_baht IS NOT NULL AND total_baht > 0))`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_bookings_private_room_date
+      ON bookings(private_room_id, booking_date) WHERE private_room_id IS NOT NULL`;
 
     // Booking-Desks junction table
     await sql`
@@ -360,6 +380,7 @@ app.get('/api/employee/reservations', authenticated(getSql, 'employee', 'manager
 
     const reservations = await sql`
       SELECT b.*, u.first_name, u.last_name, u.email,
+        CASE WHEN r.id IS NOT NULL THEN json_build_object('id', r.id, 'name', r.name, 'capacity', r.capacity) END AS private_room,
         COALESCE(
           (SELECT json_agg(json_build_object('id', d.id, 'label', d.label))
            FROM booking_desks bd JOIN desks d ON d.id = bd.desk_id
@@ -367,6 +388,7 @@ app.get('/api/employee/reservations', authenticated(getSql, 'employee', 'manager
         ) as desks,
         (SELECT checked_in_at FROM checkins WHERE booking_id = b.id LIMIT 1) as checked_in_at
       FROM bookings b JOIN users u ON u.id = b.user_id
+      LEFT JOIN private_rooms r ON r.id = b.private_room_id
       WHERE b.booking_date = ${date}
       ORDER BY b.start_time
     `;

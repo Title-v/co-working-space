@@ -141,6 +141,13 @@
             event.target.classList.add('tab-nav__item--active');
         }
 
+        function reservedSpace(reservation) {
+            const room = reservation.private_room;
+            if (room) return 'Private room · ' + room.name + ' (' + room.capacity + ' คน)';
+            const desks = typeof reservation.desks === 'string' ? JSON.parse(reservation.desks) : reservation.desks;
+            return Array.isArray(desks) ? desks.map(d => d.label).join(', ') : '—';
+        }
+
         async function loadReservations() {
             const date = document.getElementById('resDate').value;
             if (!date) return;
@@ -157,17 +164,16 @@
                 container.innerHTML = `
                     <table class="data-table">
                         <thead>
-                            <tr><th>Customer</th><th>Email</th><th>Time</th><th>Desks</th><th>Status</th></tr>
+                            <tr><th>Customer</th><th>Email</th><th>Time</th><th>Reserved space</th><th>Status</th></tr>
                         </thead>
                         <tbody>
                             ${data.reservations.map(r => {
-                                const desks = typeof r.desks === 'string' ? JSON.parse(r.desks) : r.desks;
-                                const deskLabels = Array.isArray(desks) ? desks.map(d => d.label).join(', ') : 'N/A';
+                                const spaceLabel = reservedSpace(r);
                                 return `<tr>
                                     <td>${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</td>
                                     <td>${escapeHtml(r.email)}</td>
                                     <td>${r.start_time?.substring(0,5)} - ${r.end_time?.substring(0,5)}</td>
-                                    <td>${escapeHtml(deskLabels)}</td>
+                                    <td>${escapeHtml(spaceLabel)}</td>
                                     <td><span class="status-badge status-badge--${r.status === 'checked_in' ? 'checked-in' : r.status}">${r.status}</span></td>
                                 </tr>`;
                             }).join('')}
@@ -193,13 +199,12 @@
                 }
 
                 container.innerHTML = confirmed.map(r => {
-                    const desks = typeof r.desks === 'string' ? JSON.parse(r.desks) : r.desks;
-                    const deskLabels = Array.isArray(desks) ? desks.map(d => d.label).join(', ') : 'N/A';
+                    const spaceLabel = reservedSpace(r);
                     return `
                         <div class="checkin-card">
                             <div class="checkin-card__info">
                                 <div class="checkin-card__name">${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</div>
-                                <div class="checkin-card__details">${r.start_time?.substring(0,5)} - ${r.end_time?.substring(0,5)} | ${escapeHtml(deskLabels)}</div>
+                                <div class="checkin-card__details">${r.start_time?.substring(0,5)} - ${r.end_time?.substring(0,5)} | ${escapeHtml(spaceLabel)}</div>
                             </div>
                             <button class="btn-checkin" onclick="checkInCustomer(${r.id})">Check In</button>
                         </div>

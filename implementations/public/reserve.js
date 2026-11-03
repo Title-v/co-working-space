@@ -22,13 +22,23 @@ try {
 } catch {
   draft = {};
 }
-let selected = new Set(
-  Array.isArray(draft.ids) ? draft.ids.filter(Number.isInteger) : []
-);
+const savedKind = draft.kind === 'room' ? 'room' : 'desk';
+const linkedKind = new URLSearchParams(location.search).get('type');
+let kind =
+  linkedKind === 'private-room'
+    ? 'room'
+    : linkedKind === 'desk'
+      ? 'desk'
+      : savedKind;
+const savedIds =
+  kind === savedKind && Array.isArray(draft.ids)
+    ? draft.ids.filter(Number.isInteger)
+    : [];
+let selected = new Set(kind === 'room' ? savedIds.slice(0, 1) : savedIds);
 let slotStart = draft.start,
   slotEnd = draft.end,
   zone = draft.zone;
-let requestKey = draft.key || crypto.randomUUID();
+let requestKey = (kind === savedKind && draft.key) || crypto.randomUUID();
 let schedule = null,
   settings,
   version = 0,
@@ -43,6 +53,7 @@ function saveDraft(reset = false) {
     draftKey,
     JSON.stringify({
       day: day.value,
+      kind,
       start: slotStart,
       end: slotEnd,
       zone,
@@ -51,23 +62,49 @@ function saveDraft(reset = false) {
     })
   );
 }
+function availableIds(slot) {
+  return (kind === 'room' ? slot?.availableRoomIds : slot?.availableIds) || [];
+}
+function syncKindControls() {
+  const roomMode = kind === 'room';
+  $('desk-picker').hidden = roomMode;
+  $('private-picker').hidden = !roomMode;
+  $('desks-heading').textContent = roomMode ? 'ห้องส่วนตัว' : 'ห้องและโต๊ะว่าง';
+  $('resource-label').textContent = roomMode ? 'ห้องส่วนตัว' : 'ห้องและโต๊ะ';
+  $('rate-label').textContent = roomMode
+    ? 'ราคาทั้งห้องต่อชั่วโมง'
+    : 'ราคาต่อโต๊ะต่อรอบ';
+  $('capacity-row').hidden = !roomMode;
+}
 function summary() {
   const slot = activeSlot();
-  const desks = schedule?.desks.filter((d) => selected.has(d.id)) || [];
   $('sum-day').textContent = day.value ? thaiDate(day.value) : '—';
   $('sum-time').textContent = slot ? slot.label + ' น.' : '—';
-  $('sum-desks').textContent = desks.length
-    ? formatDesks(desks)
-    : 'ยังไม่ได้เลือก';
-  $('unit-price').textContent = settings ? baht.format(settings.price) : '—';
-  $('total').textContent = baht.format(desks.length * (settings?.price || 0));
-  reserve.disabled = submitting || !slot || slot.started || !desks.length;
+  let total = 0;
+  if (kind === 'room') {
+    const room = schedule?.privateRooms?.find((r) => selected.has(r.id));
+    $('sum-desks').textContent = room?.name || 'ยังไม่ได้เลือก';
+    $('sum-capacity').textContent = room ? room.capacity + ' คน' : '—';
+    $('unit-price').textContent = room ? baht.format(room.hourlyRate) : '—';
+    if (room && slot) total = room.hourlyRate * slot.durationHours;
+  } else {
+    const desks = schedule?.desks.filter((d) => selected.has(d.id)) || [];
+    $('sum-desks').textContent = desks.length
+      ? formatDesks(desks)
+      : 'ยังไม่ได้เลือก';
+    $('unit-price').textContent = settings ? baht.format(settings.price) : '—';
+    total = desks.length * (settings?.price || 0);
+  }
+  $('total').textContent = baht.format(total);
+  reserve.disabled = submitting || !slot || slot.started || !selected.size;
 }
 function clearSchedule() {
   schedule = null;
-  for (const id of ['slots', 'zones', 'desk-map']) $(id).replaceChildren();
+  for (const id of ['slots', 'zones', 'desk-map', 'private-room-list'])
+    $(id).replaceChildren();
   $('zone-title').textContent = 'ผังโต๊ะ';
   $('zone-count').textContent = '';
+  $('private-count').textContent = '';
   summary();
 }
 
@@ -83,13 +120,13 @@ function draw() {
           : s.label
       );
       b.type = 'button';
-      b.disabled = s.started || !s.availableDesks;
+      b.disabled = s.started || !availableIds(s).length;
       b.setAttribute('aria-pressed', String(s === slot));
       b.onclick = () => {
         slotStart = s.startTime;
         slotEnd = s.endTime;
         selected = new Set(
-          [...selected].filter((id) => s.availableIds.includes(id))
+          [...selected].filter((id) => availableIds(s).includes(id))
         );
         notice(message);
         saveDraft(true);
@@ -98,6 +135,56 @@ function draw() {
       return b;
     })
   );
+  if (kind === 'room') drawPrivateRooms(slot);
+  else drawDesks(slot);
+  summary();
+}
+
+function drawPrivateRooms(slot) {
+  const free = new Set(availableIds(slot));
+  const rooms = schedule.privateRooms || [];
+  $('private-price-heading').textContent = slot
+    ? 'ราคาเหมารอบนี้'
+    : 'ราคาต่อชั่วโมง';
+  $('private-count').textContent =
+    'ว่าง ' + free.size + ' / ' + rooms.length + ' ห้อง';
+  if (!rooms.length) {
+    $('private-room-list').replaceChildren(
+      el('p', 'ยังไม่มีห้องส่วนตัวเปิดให้จอง', 'muted')
+    );
+    return;
+  }
+  $('private-room-list').replaceChildren(
+    ...rooms.map((room) => {
+      const row = el('label', null, 'private-option');
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'private-room';
+      radio.value = room.id;
+      radio.checked = selected.has(room.id);
+      radio.disabled = !free.has(room.id);
+      radio.onchange = () => {
+        selected = new Set([room.id]);
+        notice(message);
+        saveDraft(true);
+        summary();
+      };
+      const price = slot
+        ? baht.format(room.hourlyRate * slot.durationHours)
+        : baht.format(room.hourlyRate) + '/ชม.';
+      row.append(
+        radio,
+        el('strong', room.name, 'private-name'),
+        el('span', 'สูงสุด ' + room.capacity + ' คน', 'private-capacity'),
+        el('span', price, 'private-price'),
+        el('span', radio.disabled ? 'ไม่ว่าง' : 'ว่าง', 'private-status')
+      );
+      return row;
+    })
+  );
+}
+
+function drawDesks(slot) {
   const rooms = [...new Set(schedule.desks.map((d) => d.zone))];
   if (!rooms.includes(zone)) zone = rooms[0];
   $('zones').replaceChildren(
@@ -149,8 +236,42 @@ function draw() {
       return b;
     })
   );
-  summary();
 }
+function reconcileSelection() {
+  const prior = activeSlot();
+  const slot =
+    prior && !prior.started && availableIds(prior).length
+      ? prior
+      : schedule.slots.find((s) => !s.started && availableIds(s).length);
+  const previousCount = selected.size;
+  if (!slot || (slotStart && slotEnd && prior !== slot)) selected.clear();
+  slotStart = slot?.startTime;
+  slotEnd = slot?.endTime;
+  const free = availableIds(slot);
+  selected = new Set([...selected].filter((id) => free.includes(id)));
+  return previousCount !== selected.size;
+}
+
+for (const radio of document.querySelectorAll('[name="booking-kind"]')) {
+  radio.checked = radio.value === kind;
+  radio.onchange = () => {
+    kind = radio.value;
+    const url = new URL(location.href);
+    if (kind === 'room') url.searchParams.set('type', 'private-room');
+    else url.searchParams.delete('type');
+    history.replaceState(null, '', url);
+    selected.clear();
+    syncKindControls();
+    notice(message);
+    if (schedule) {
+      reconcileSelection();
+      draw();
+    } else summary();
+    saveDraft(true);
+  };
+}
+syncKindControls();
+
 async function refresh(clear = false) {
   if (!day.value || !day.validity.valid) {
     version++;
@@ -171,22 +292,14 @@ async function refresh(clear = false) {
     );
     if (localVersion !== version) return;
     schedule = result;
-    const valid = activeSlot();
-    const slot =
-      valid && !valid.started && valid.availableDesks
-        ? valid
-        : result.slots.find((s) => !s.started && s.availableDesks);
-    const wasSelected = selected.size;
-    // A refreshed screen must never move an existing selection to a different time.
-    if (!slot || (slotStart && slotEnd && valid !== slot)) selected.clear();
-    slotStart = slot?.startTime;
-    slotEnd = slot?.endTime;
-    selected = new Set(
-      [...selected].filter((id) => slot?.availableIds.includes(id))
-    );
-    if (wasSelected !== selected.size) {
+    if (reconcileSelection()) {
       saveDraft(true);
-      notice(message, 'สถานะโต๊ะเปลี่ยนแล้ว กรุณาตรวจรายการที่เลือก');
+      notice(
+        message,
+        kind === 'room'
+          ? 'สถานะห้องเปลี่ยนแล้ว กรุณาเลือกห้องว่าง'
+          : 'สถานะโต๊ะเปลี่ยนแล้ว กรุณาตรวจรายการที่เลือก'
+      );
     }
     freshness.textContent =
       'อัปเดต ' +
@@ -214,6 +327,17 @@ day.onchange = () => {
 };
 reserve.onclick = async () => {
   if (submitting || !selected.size || !activeSlot()) return;
+  const selection = {
+    date: day.value,
+    startTime: slotStart,
+    endTime: slotEnd,
+    requestKey,
+    ...(kind === 'room'
+      ? { privateRoomId: [...selected][0] }
+      : { deskIds: [...selected] })
+  };
+  const form = document.querySelector('.booking-form');
+  form.inert = true;
   submitting = true;
   summary();
   saveDraft();
@@ -225,18 +349,12 @@ reserve.onclick = async () => {
       return;
     }
     if (staffHome(user)) {
-      notice(message, 'กรุณาใช้บัญชีลูกค้าเพื่อจองโต๊ะ');
+      notice(message, 'กรุณาใช้บัญชีลูกค้าเพื่อจองพื้นที่');
       return;
     }
     const result = await api('/api/bookings', {
       method: 'POST',
-      body: JSON.stringify({
-        date: day.value,
-        startTime: slotStart,
-        endTime: slotEnd,
-        deskIds: [...selected],
-        requestKey
-      })
+      body: JSON.stringify(selection)
     });
     sessionStorage.removeItem(draftKey);
     location.assign('/payment.html?booking=' + result.booking.id);
@@ -249,6 +367,7 @@ reserve.onclick = async () => {
     if (e.status === 409) await refresh();
   } finally {
     submitting = false;
+    form.inert = false;
     summary();
   }
 };

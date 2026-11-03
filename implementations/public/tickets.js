@@ -60,7 +60,12 @@ function ticket(b) {
   const details = el('dl', null, 'details');
   const rows = [
     ['ช่วงเวลา', b.start_time + ' – ' + b.end_time + ' น.'],
-    ['ที่นั่ง', formatDesks(b.desks)],
+    ...(b.private_room
+      ? [
+          ['ห้องส่วนตัวทั้งห้อง', b.private_room.name],
+          ['ความจุสูงสุด', b.private_room.capacity + ' คน']
+        ]
+      : [['ที่นั่ง', formatDesks(b.desks)]]),
     ['ยอดชำระเดโม', baht.format(b.total_baht)]
   ];
   for (const [name, value] of rows) {
@@ -110,7 +115,7 @@ function ticket(b) {
             !window.confirm(
               'ยกเลิก ' +
                 bookingRef(b.id) +
-                ' และคืนโต๊ะให้ผู้จองคนอื่นหรือไม่?'
+                ' และคืนพื้นที่ให้ผู้จองคนอื่นหรือไม่?'
             )
           )
             return;
@@ -136,7 +141,7 @@ function tick() {
       Math.ceil((new Date(clock.dataset.deadline) - Date.now()) / 1000)
     );
     clock.textContent =
-      'เหลือเวลากันโต๊ะ ' +
+      'เหลือเวลาชำระเดโม ' +
       Math.floor(seconds / 60) +
       ':' +
       String(seconds % 60).padStart(2, '0') +
@@ -165,12 +170,8 @@ async function load() {
       const box = el('article', null, 'booking-card ticket empty');
       box.append(
         el('h2', 'ยังไม่มีการจอง'),
-        el(
-          'p',
-          'ดูรอบเวลาและหมายเลขโต๊ะที่ว่าง แล้วเริ่มจองโต๊ะแรกของคุณ',
-          'muted'
-        ),
-        link('เลือกโต๊ะทำงาน', '/#reserve', 'primary')
+        el('p', 'เลือกวันและรอบเวลาเพื่อดูโต๊ะหรือห้องส่วนตัวที่ว่าง', 'muted'),
+        link('เลือกพื้นที่ทำงาน', '/#reserve', 'primary')
       );
       list.replaceChildren(box);
     }
@@ -195,7 +196,7 @@ async function load() {
     }
     list.replaceChildren(
       el('p', e.message, 'notice'),
-      link('กลับไปหน้าจองโต๊ะ', '/#reserve', 'secondary')
+      link('กลับไปหน้าจองพื้นที่', '/#reserve', 'secondary')
     );
   }
 }

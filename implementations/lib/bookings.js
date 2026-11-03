@@ -22,6 +22,7 @@ const times = [
 const slots = times.map(([startTime, endTime]) => ({
   startTime,
   endTime,
+  durationHours: Number(endTime.slice(0, 2)) - Number(startTime.slice(0, 2)),
   label: startTime + ' – ' + endTime
 }));
 const holdMinutes = 30;
@@ -49,26 +50,41 @@ function hasStarted(day, slot) {
   return day + ' ' + slot.startTime <= clock.format(new Date());
 }
 
-function deskSchedule(sql, day) {
+// Desks and private rooms are separate inventories. Only the same resource and
+// overlapping time can block a new booking; both use the same hold expiry rule.
+function spaceSchedule(sql, day) {
   return sql`
-    SELECT d.id, d.label, COALESCE(d.zone, 'General') AS zone,
-      COALESCE(json_agg(json_build_array(to_char(r.start_time,'HH24:MI'), to_char(r.end_time,'HH24:MI')))
-        FILTER (WHERE r.desk_id IS NOT NULL), '[]') AS busy
-    FROM desks d LEFT JOIN (
-      SELECT bd.desk_id, b.start_time, b.end_time FROM booking_desks bd JOIN bookings b ON b.id = bd.booking_id
-      WHERE b.booking_date = ${day} AND (b.status IN ('confirmed','checked_in') OR
-        (b.status = 'pending' AND (b.expires_at IS NULL OR b.expires_at > now())))
-    ) r ON r.desk_id = d.id
-    WHERE d.is_active GROUP BY d.id ORDER BY d.id`;
+    WITH inventory (kind, id, label, zone, capacity, hourly_rate) AS (
+      SELECT 'desk'::text, id, label, COALESCE(zone, 'General'), NULL::integer, NULL::integer
+        FROM desks WHERE is_active
+      UNION ALL
+      SELECT 'room', id, name, NULL, capacity, hourly_rate FROM private_rooms WHERE is_active
+    ), occupied AS (
+      SELECT CASE WHEN b.private_room_id IS NULL THEN 'desk' ELSE 'room' END AS kind,
+        COALESCE(b.private_room_id, bd.desk_id) AS id, b.start_time, b.end_time
+      FROM bookings b LEFT JOIN booking_desks bd ON bd.booking_id=b.id
+      WHERE b.booking_date=${day} AND (b.status IN ('confirmed','checked_in') OR
+        (b.status='pending' AND (b.expires_at IS NULL OR b.expires_at > statement_timestamp())))
+    )
+    SELECT i.kind, i.id, i.label, i.zone, i.capacity, i.hourly_rate,
+      COALESCE(json_agg(json_build_array(to_char(o.start_time,'HH24:MI'), to_char(o.end_time,'HH24:MI')))
+        FILTER (WHERE o.id IS NOT NULL), '[]') AS busy
+    FROM inventory i LEFT JOIN occupied o ON o.kind=i.kind AND o.id=i.id
+    GROUP BY i.kind,i.id,i.label,i.zone,i.capacity,i.hourly_rate
+    ORDER BY i.kind,i.id`;
 }
 
-function freeDesks(desks, slot) {
-  return desks.filter(
-    (d) =>
-      !d.busy.some(
+function availableSpaces(spaces, slot) {
+  return spaces.filter(
+    (space) =>
+      !space.busy.some(
         ([start, end]) => start < slot.endTime && end > slot.startTime
       )
   );
+}
+
+function validId(id) {
+  return Number.isSafeInteger(id) && id > 0 && id <= 2147483647;
 }
 
 function bookingQuery(sql, userId, id = null) {
@@ -76,11 +92,12 @@ function bookingQuery(sql, userId, id = null) {
     SELECT b.id, to_char(b.booking_date, 'YYYY-MM-DD') AS booking_date,
       to_char(b.start_time,'HH24:MI') AS start_time, to_char(b.end_time,'HH24:MI') AS end_time,
       b.num_desks, b.expires_at, b.payment_id, b.total_baht,
+      CASE WHEN r.id IS NOT NULL THEN json_build_object('id', r.id, 'name', r.name, 'capacity', r.capacity) END AS private_room,
       CASE WHEN b.status='pending' AND b.expires_at<=now() THEN 'expired' ELSE b.status END AS status,
       b.booking_date > (now() AT TIME ZONE 'Asia/Bangkok')::date AS before_booking_day,
       COALESCE((SELECT json_agg(json_build_object('id',d.id,'label',d.label,'zone',d.zone) ORDER BY d.id)
         FROM booking_desks bd JOIN desks d ON d.id=bd.desk_id WHERE bd.booking_id=b.id), '[]') AS desks
-    FROM bookings b WHERE b.user_id=${userId} AND (${id}::integer IS NULL OR b.id=${id}::integer)
+    FROM bookings b LEFT JOIN private_rooms r ON r.id=b.private_room_id WHERE b.user_id=${userId} AND (${id}::integer IS NULL OR b.id=${id}::integer)
     ORDER BY b.booking_date DESC, b.start_time DESC, b.id DESC`;
 }
 
@@ -107,22 +124,33 @@ function bookingRoutes(getSql, price) {
     if (!validDay(date, bookingWindow()))
       return send(res, fail(400, 'กรุณาเลือกวันที่ภายใน 90 วันนับจากวันนี้'));
     try {
-      const desks = await deskSchedule(getSql(), date);
+      const inventory = await spaceSchedule(getSql(), date);
+      const desks = inventory.filter((space) => space.kind === 'desk');
+      const rooms = inventory.filter((space) => space.kind === 'room');
       res.json({
         date,
         price,
         desks: desks.map(({ id, label, zone }) => ({ id, label, zone })),
+        privateRooms: rooms.map(({ id, label, capacity, hourly_rate }) => ({
+          id,
+          name: label,
+          capacity,
+          hourlyRate: hourly_rate
+        })),
         slots: slots.map((slot) => {
           const started = hasStarted(date, slot);
           const availableIds = started
             ? []
-            : freeDesks(desks, slot).map((d) => d.id);
+            : availableSpaces(desks, slot).map((d) => d.id);
           return {
             ...slot,
             started,
             totalDesks: desks.length,
             availableDesks: availableIds.length,
-            availableIds
+            availableIds,
+            availableRoomIds: started
+              ? []
+              : availableSpaces(rooms, slot).map((room) => room.id)
           };
         })
       });
@@ -134,20 +162,24 @@ function bookingRoutes(getSql, price) {
   router.use(customer);
 
   router.post('/', async (req, res, next) => {
-    const { date, startTime, endTime, deskIds, requestKey } = req.body || {};
+    const { date, startTime, endTime, deskIds, privateRoomId, requestKey } =
+      req.body || {};
     const slot = slots.find(
       (s) => s.startTime === startTime && s.endTime === endTime
     );
     if (!validDay(date, bookingWindow()) || !slot || hasStarted(date, slot))
       return send(res, fail(400, 'วันหรือช่วงเวลานี้เปิดจองไม่ได้'));
+    const isRoom = privateRoomId !== undefined;
+    if (isRoom && (!validId(privateRoomId) || deskIds !== undefined)) {
+      return send(res, fail(400, 'กรุณาเลือกห้องส่วนตัวหนึ่งห้องต่อรายการ'));
+    }
     if (
-      !Array.isArray(deskIds) ||
-      !deskIds.length ||
-      deskIds.length > 50 ||
-      !deskIds.every(
-        (id) => Number.isSafeInteger(id) && id > 0 && id <= 2147483647
-      ) ||
-      new Set(deskIds).size !== deskIds.length
+      !isRoom &&
+      (!Array.isArray(deskIds) ||
+        !deskIds.length ||
+        deskIds.length > 50 ||
+        !deskIds.every(validId) ||
+        new Set(deskIds).size !== deskIds.length)
     ) {
       return send(res, fail(400, 'กรุณาเลือกหมายเลขโต๊ะว่าง'));
     }
@@ -167,12 +199,16 @@ function bookingRoutes(getSql, price) {
           await tx`SELECT id FROM bookings WHERE user_id=${req.user.id} AND request_key=${requestKey}`;
         if (prior) {
           const [booking] = await bookingQuery(tx, req.user.id, prior.id);
+          const sameSelection = isRoom
+            ? booking.private_room?.id === privateRoomId
+            : !booking.private_room &&
+              booking.desks.length === deskIds.length &&
+              booking.desks.every((d) => deskIds.includes(d.id));
           if (
             booking.booking_date !== date ||
             booking.start_time !== startTime ||
             booking.end_time !== endTime ||
-            booking.desks.length !== deskIds.length ||
-            !booking.desks.every((d) => deskIds.includes(d.id))
+            !sameSelection
           ) {
             return fail(409, 'รายการเดิมใช้ตัวเลือกอื่น กรุณาเริ่มรายการใหม่');
           }
@@ -180,21 +216,38 @@ function bookingRoutes(getSql, price) {
         }
         if (hasStarted(date, slot))
           return fail(409, 'ช่วงเวลานี้เริ่มแล้ว กรุณาเลือกเวลาใหม่');
-        const available = new Set(
-          freeDesks(await deskSchedule(tx, date), slot).map((d) => d.id)
-        );
-        if (!deskIds.every((id) => available.has(id)))
-          return fail(
-            409,
-            'มีผู้จองโต๊ะที่เลือกไปแล้ว กรุณาเลือกโต๊ะว่างอีกครั้ง'
+        const free = availableSpaces(await spaceSchedule(tx, date), slot);
+        let total;
+        if (isRoom) {
+          const room = free.find(
+            (space) => space.kind === 'room' && space.id === privateRoomId
           );
+          if (!room)
+            return fail(
+              409,
+              'ห้องส่วนตัวนี้ไม่ว่างในรอบที่เลือก กรุณาเลือกห้องหรือเวลาใหม่'
+            );
+          total = room.hourly_rate * slot.durationHours;
+        } else {
+          const availableIds = new Set(
+            free.filter((space) => space.kind === 'desk').map((d) => d.id)
+          );
+          if (!deskIds.every((id) => availableIds.has(id)))
+            return fail(
+              409,
+              'มีผู้จองโต๊ะที่เลือกไปแล้ว กรุณาเลือกโต๊ะว่างอีกครั้ง'
+            );
+          total = price * deskIds.length;
+        }
         const [row] =
-          await tx`INSERT INTO bookings (user_id, booking_date, start_time, end_time, num_desks, status, expires_at, total_baht, request_key)
-          VALUES (${req.user.id}, ${date}, ${startTime}, ${endTime}, ${deskIds.length}, 'pending',
-            LEAST(now() + interval '30 minutes', (${date}::date + ${startTime}::time) AT TIME ZONE 'Asia/Bangkok'), ${price * deskIds.length}, ${requestKey})
+          await tx`INSERT INTO bookings (user_id, booking_date, start_time, end_time, num_desks, private_room_id, status, expires_at, total_baht, request_key)
+          VALUES (${req.user.id}, ${date}, ${startTime}, ${endTime}, ${isRoom ? 0 : deskIds.length}, ${privateRoomId ?? null}, 'pending',
+            LEAST(now() + interval '30 minutes', (${date}::date + ${startTime}::time) AT TIME ZONE 'Asia/Bangkok'), ${total}, ${requestKey})
           RETURNING id`;
-        await tx`INSERT INTO booking_desks (booking_id, desk_id)
-          SELECT ${row.id}, unnest(${deskIds}::integer[])`;
+        if (!isRoom) {
+          await tx`INSERT INTO booking_desks (booking_id, desk_id)
+            SELECT ${row.id}, unnest(${deskIds}::integer[])`;
+        }
         const [booking] = await bookingQuery(tx, req.user.id, row.id);
         return ok({ booking }, 201);
       });
@@ -269,7 +322,7 @@ function bookingRoutes(getSql, price) {
           return fail(409, 'รายการนี้ไม่อยู่ระหว่างรอชำระ');
         if (b.expired) {
           await tx`UPDATE bookings SET status='expired' WHERE id=${b.id}`;
-          return fail(409, 'หมดเวลากันโต๊ะ กรุณาเลือกโต๊ะใหม่');
+          return fail(409, 'หมดเวลารอชำระ กรุณาเริ่มการจองใหม่');
         }
         const [payment] =
           await tx`INSERT INTO payments (user_id, booking_id, amount, payment_type, payment_method)

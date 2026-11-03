@@ -4,7 +4,7 @@ const header = document.getElementById('site-header');
 const here = document.body.dataset.page;
 header.innerHTML = `
   <nav class="dashboard__nav customer-nav" aria-label="เมนูหลัก">
-    <a class="dashboard__nav-logo" href="/" aria-label="SpaceHub หน้าจองโต๊ะ">
+    <a class="dashboard__nav-logo" href="/" aria-label="SpaceHub หน้าจองพื้นที่">
       <span class="navbar__logo-icon" aria-hidden="true">⬡</span>SpaceHub
     </a>
     <div class="dashboard__nav-links"></div>
@@ -13,7 +13,7 @@ header.innerHTML = `
 
 const navigation = header.querySelector('.dashboard__nav-links');
 for (const [page, label, href] of [
-  ['reserve', 'จองโต๊ะ', '/#reserve'],
+  ['reserve', 'จองพื้นที่', '/#reserve'],
   ['mine', 'การจองของฉัน', '/my-bookings.html']
 ]) {
   const item = link(label, href, 'nav-link');

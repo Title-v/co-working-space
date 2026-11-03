@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1a73e8">
-  <title>จองโต๊ะทำงาน · SpaceHub</title>
+  <title>จองพื้นที่ทำงาน · SpaceHub</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
 </head>
@@ -13,14 +13,19 @@
   <header id="site-header"></header>
   <main id="main" class="workspace">
     <header class="dashboard__welcome page-heading">
-      <h1>จองโต๊ะทำงาน</h1>
-      <p>เลือกวัน รอบเวลา และหมายเลขโต๊ะที่ต้องการใช้</p>
+      <h1>จองพื้นที่ทำงาน</h1>
+      <p>เลือกจองรายโต๊ะ หรือจองห้องส่วนตัวทั้งห้องตามวันและรอบเวลาที่ต้องการ</p>
     </header>
 
     <div class="booking-layout" id="reserve">
       <div class="booking-form">
         <section class="booking-section" aria-labelledby="schedule-heading">
-          <h2 id="schedule-heading" class="booking-section__title">วันและเวลาเข้าใช้</h2>
+          <h2 id="schedule-heading" class="booking-section__title">ประเภทการจองและเวลาเข้าใช้</h2>
+          <fieldset class="booking-kind">
+            <legend class="field-label">ประเภทการจอง</legend>
+            <label><input type="radio" name="booking-kind" value="desk" checked> รายโต๊ะ</label>
+            <label><input type="radio" name="booking-kind" value="room"> ห้องส่วนตัวทั้งห้อง</label>
+          </fieldset>
           <div class="schedule-fields">
             <div class="form-group">
               <label for="day">วันที่เข้าใช้</label>
@@ -38,17 +43,24 @@
             <h2 id="desks-heading" class="booking-section__title">ห้องและโต๊ะว่าง</h2>
             <span id="freshness" class="updated" role="status">กำลังโหลดผังโต๊ะ…</span>
           </div>
-          <div id="zones" class="room-tabs" role="group" aria-label="เลือกห้อง"></div>
-          <div class="map-heading">
-            <h3 id="zone-title">ผังโต๊ะ</h3>
-            <span id="zone-count"></span>
+          <div id="desk-picker">
+            <div id="zones" class="room-tabs" role="group" aria-label="เลือกห้อง"></div>
+            <div class="map-heading">
+              <h3 id="zone-title">ผังโต๊ะ</h3>
+              <span id="zone-count"></span>
+            </div>
+            <div id="desk-map" class="desk-grid" role="group" aria-label="เลือกโต๊ะในห้อง"></div>
+            <div class="map-key">
+              <span><i aria-hidden="true"></i>ว่าง</span>
+              <span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span>
+              <span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span>
+              <small>เลือกได้มากกว่าหนึ่งโต๊ะ</small>
+            </div>
           </div>
-          <div id="desk-map" class="desk-grid" role="group" aria-label="เลือกโต๊ะในห้อง"></div>
-          <div class="map-key">
-            <span><i aria-hidden="true"></i>ว่าง</span>
-            <span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span>
-            <span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span>
-            <small>เลือกได้มากกว่าหนึ่งโต๊ะ</small>
+          <div id="private-picker" hidden>
+            <div class="private-intro"><span>เลือกได้หนึ่งห้องต่อรายการ</span><span id="private-count"></span></div>
+            <div class="room-columns" aria-hidden="true"><span>ชื่อห้อง</span><span>ความจุ</span><span id="private-price-heading">ราคาเหมารอบนี้</span><span>สถานะ</span></div>
+            <div id="private-room-list" role="radiogroup" aria-label="เลือกห้องส่วนตัว"></div>
           </div>
         </section>
       </div>
@@ -58,12 +70,13 @@
         <dl class="details">
           <div><dt>วันที่เข้าใช้</dt><dd id="sum-day">—</dd></div>
           <div><dt>รอบเวลา</dt><dd id="sum-time">—</dd></div>
-          <div><dt>ห้องและโต๊ะ</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div>
-          <div><dt>ราคาต่อโต๊ะต่อรอบ</dt><dd id="unit-price">—</dd></div>
+          <div><dt id="resource-label">ห้องและโต๊ะ</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div>
+          <div id="capacity-row" hidden><dt>ความจุสูงสุด</dt><dd id="sum-capacity">—</dd></div>
+          <div><dt id="rate-label">ราคาต่อโต๊ะต่อรอบ</dt><dd id="unit-price">—</dd></div>
         </dl>
         <div class="amount"><span>ยอดชำระเดโม</span><strong id="total">฿0</strong></div>
         <button id="reserve-button" class="btn-apply" type="button" disabled>จองและไปชำระเดโม</button>
-        <p class="fine-print">ระบบกันโต๊ะให้สูงสุด 30 นาที การชำระเงินเป็นแบบจำลอง</p>
+        <p class="fine-print">ระบบกันพื้นที่ให้สูงสุด 30 นาที การชำระเงินเป็นแบบจำลอง</p>
         <p id="booking-message" class="notice" role="alert" hidden></p>
       </aside>
     </div>
