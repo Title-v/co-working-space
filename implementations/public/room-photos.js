@@ -27,10 +27,10 @@ function photoButton(key, name, detail, zone = false) {
   button.type = 'button';
   button.className = 'photo-open' + (zone ? ' photo-open--zone' : '');
   button.dataset.photo = key;
-  button.setAttribute('aria-label', 'ดูภาพจำลอง' + name);
+  button.setAttribute('aria-label', 'ดูภาพจำลอง ' + name);
   button.setAttribute('aria-haspopup', 'dialog');
   button.setAttribute('aria-controls', dialog.id);
-  button.title = 'ดูภาพจำลอง' + name;
+  button.title = 'ดูภาพจำลอง ' + name;
 
   const thumb = new Image(1200, 800);
   thumb.alt = '';

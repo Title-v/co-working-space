@@ -1,3 +1,4 @@
+import { zoneForName } from './desk-zones.mjs';
 import {
   api,
   baht,
@@ -130,22 +131,18 @@ function ticket(b) {
   if (checkout && b.status !== 'pending')
     actions.append(link('ดูการจองของฉัน', '/my-bookings.html', 'secondary'));
   card.append(actions);
-  const zoneKeys = {
-    ห้องแสงเช้า: 'zone-a',
-    ห้องร่มไทร: 'zone-b',
-    ห้องลานฟ้า: 'zone-c'
-  };
+  const code = zoneForName(b.desks[0]?.zone)?.code;
   const room = b.private_room;
   const key = room
     ? room.id >= 1 && room.id <= 10
       ? 'private-' + String(room.id).padStart(2, '0')
       : null
-    : zoneKeys[b.desks[0]?.zone];
+    : code && 'zone-' + code.toLowerCase();
   if (!key) return card;
   const wrap = el('div', null, 'ticket-wrap');
   const photo = el('figure', null, 'ticket-photo');
   const img = new Image(1200, 800);
-  img.alt = 'ภาพจำลอง' + (room?.name || b.desks[0].zone);
+  img.alt = 'ภาพจำลอง ' + (room?.name || b.desks[0].zone);
   img.loading = 'lazy';
   img.src = '/images/rooms/' + key + '.webp';
   photo.append(
@@ -200,8 +197,8 @@ async function load() {
       const photo = el('figure', null, 'ticket-photo');
       const img = new Image(1200, 800);
       img.src = '/images/rooms/zone-c.webp';
-      img.alt = 'ภาพจำลองห้องลานฟ้า';
-      photo.append(img, el('figcaption', 'ห้องลานฟ้า · ภาพจำลอง'));
+      img.alt = 'ภาพจำลอง Forum Zone';
+      photo.append(img, el('figcaption', 'Forum Zone · ภาพจำลอง'));
       wrap.append(photo, box);
       list.replaceChildren(wrap);
     }

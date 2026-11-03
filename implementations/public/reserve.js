@@ -9,7 +9,8 @@ import {
   staffHome,
   thaiDate
 } from './site.js';
-import { renderFloorPlan, zoneButton, zoneFromCode } from './floor-plan.js';
+import { renderFloorPlan, zoneButton } from './floor-plan.js';
+import { zoneForName, zoneFromCode } from './desk-zones.mjs';
 import { privateRoomPhoto, zonePhoto } from './room-photos.js';
 
 const $ = (id) => document.getElementById(id);
@@ -39,7 +40,7 @@ const savedIds =
 let selected = new Set(kind === 'room' ? savedIds.slice(0, 1) : savedIds);
 let slotStart = draft.start,
   slotEnd = draft.end,
-  zone = zoneFromCode(query.get('zone')) || draft.zone;
+  zone = zoneFromCode(query.get('zone')) || zoneFromCode(draft.zoneCode) || zoneForName(draft.zone)?.name || draft.zone;
 let requestKey = (kind === savedKind && draft.key) || crypto.randomUUID();
 let minimumCapacity =
   kind === savedKind && Number.isInteger(draft.capacity) ? draft.capacity : 0;
@@ -63,6 +64,7 @@ function saveDraft(reset = false) {
       start: slotStart,
       end: slotEnd,
       zone,
+      zoneCode: zoneForName(zone)?.code,
       ids: [...selected],
       key: requestKey
     })
@@ -287,7 +289,7 @@ function drawDesks(slot) {
       ?.focus({ preventScroll: true });
   }
   const desks = schedule.desks.filter((d) => d.zone === zone);
-  $('zone-title').textContent = zone ? 'ผัง' + zone : 'ยังไม่มีโต๊ะเปิดให้จอง';
+  $('zone-title').textContent = zone ? 'ผัง ' + zone : 'ยังไม่มีโต๊ะเปิดให้จอง';
   $('zone-count').textContent = slot
     ? 'ว่าง ' +
       desks.filter((d) => free.has(d.id)).length +

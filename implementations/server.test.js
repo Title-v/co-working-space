@@ -193,16 +193,16 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
 
         it('counts actual desks and excludes overlapping reservations from full-day availability', async () => {
             mockSql.mockResolvedValueOnce([
-                {kind:'desk',id:1,zone:'ห้องแสงเช้า',label:'Desk 1',busy:[['08:00','10:00']]},
-                {kind:'desk',id:2,zone:'ห้องแสงเช้า',label:'Desk 2',busy:[]},
-                {kind:'room',id:1,label:'ห้องพิกุล',capacity:2,hourly_rate:15,busy:[['10:00','12:00']]}
+                {kind:'desk',id:1,zone:'Focus Zone',label:'Desk 1',busy:[['08:00','10:00']]},
+                {kind:'desk',id:2,zone:'Focus Zone',label:'Desk 2',busy:[]},
+                {kind:'room',id:1,label:'Focus 01',capacity:2,hourly_rate:15,busy:[['10:00','12:00']]}
             ]);
             const {status,body} = await request(app).get('/api/bookings/availability').query({date:future});
             expect(status).toBe(200);
             expect(body.slots[0].availableIds).toEqual([2]);
             expect(body.slots[1].availableIds).toEqual([1,2]);
             expect(body.slots.at(-1).availableIds).toEqual([2]);
-            expect(body.privateRooms).toEqual([{id:1,name:'ห้องพิกุล',capacity:2,hourlyRate:15}]);
+            expect(body.privateRooms).toEqual([{id:1,name:'Focus 01',capacity:2,hourlyRate:15}]);
             expect(body.slots[0].availableRoomIds).toEqual([1]);
             expect(body.slots[1].availableRoomIds).toEqual([]);
             expect(body.slots.at(-1).availableRoomIds).toEqual([]);

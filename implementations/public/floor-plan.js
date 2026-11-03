@@ -1,3 +1,5 @@
+import { zoneForName } from './desk-zones.mjs';
+
 // Coordinates are in a 600 × 360 schematic. Desk numbers are the permanent
 // labels in the inventory, not array offsets or database primary keys.
 const WIDTH = 600;
@@ -41,9 +43,8 @@ pods.forEach(([x, y], index) => {
 
 const plans = new Map([
   [
-    'ห้องแสงเช้า',
+    'A',
     {
-      code: 'A',
       description: 'โต๊ะแถวคู่ · ทางเดินกลาง',
       seats: rowSeats,
       drawing:
@@ -52,9 +53,8 @@ const plans = new Map([
     }
   ],
   [
-    'ห้องร่มไทร',
+    'B',
     {
-      code: 'B',
       description: 'โต๊ะหันเข้าหากัน 5 กลุ่ม',
       seats: podSeats,
       drawing:
@@ -73,9 +73,8 @@ const plans = new Map([
     }
   ],
   [
-    'ห้องลานฟ้า',
+    'C',
     {
-      code: 'C',
       description: 'โต๊ะรูปตัวยู · พื้นที่กลางห้อง',
       seats: [
         ...[277, 214, 151].map((y, i) =>
@@ -118,19 +117,14 @@ function position(node, { x, y }) {
   node.style.left = (100 * x) / WIDTH + '%';
   node.style.top = (100 * y) / HEIGHT + '%';
 }
-export function zoneFromCode(code) {
-  for (const [zone, plan] of plans) {
-    if (plan.code === code) return zone;
-  }
-}
-
 export function zoneButton(zone, freeCount, total, active) {
-  const plan = plans.get(zone);
+  const code = zoneForName(zone)?.code;
+  const plan = plans.get(code);
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'zone-choice';
   button.dataset.zone = zone;
-  if (plan) button.dataset.zoneCode = plan.code;
+  if (plan) button.dataset.zoneCode = code;
   button.setAttribute('aria-label', zone);
   button.setAttribute('aria-pressed', String(active));
   button.setAttribute(
@@ -160,7 +154,7 @@ export function zoneButton(zone, freeCount, total, active) {
   name.textContent = zone;
   const detail = document.createElement('small');
   detail.textContent =
-    (plan ? 'โซน ' + plan.code + ' · ' : '') +
+    (plan ? 'โซน ' + code + ' · ' : '') +
     'ว่าง ' +
     freeCount +
     '/' +
@@ -212,7 +206,8 @@ export function renderFloorPlan({ zone, desks, free, selected, toggle }) {
   const controls = document.getElementById('plan-zoom');
   const focusedId = document.activeElement?.dataset.deskId;
   const changedZone = canvas.dataset.zone !== zone;
-  const plan = plans.get(zone);
+  const code = zoneForName(zone)?.code;
+  const plan = plans.get(code);
   // A missing or renamed desk must not move every seat that follows it.
   // Ambiguous or newly added labels stay bookable in the additional list.
   const byLabel = new Map();

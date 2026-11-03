@@ -149,13 +149,23 @@ function initDB(connection) {
       hourly_rate INTEGER NOT NULL CHECK (hourly_rate > 0),
       is_active BOOLEAN NOT NULL DEFAULT TRUE
     )`;
-    await sql`INSERT INTO private_rooms (id, name, capacity, hourly_rate) VALUES
-      (1, 'ห้องพิกุล', 2, 15), (2, 'ห้องจำปี', 2, 15),
-      (3, 'ห้องมะลิ', 4, 30), (4, 'ห้องโมก', 4, 30),
-      (5, 'ห้องสารภี', 6, 45), (6, 'ห้องแก้ว', 6, 45),
-      (7, 'ห้องลำดวน', 8, 60), (8, 'ห้องพะยอม', 8, 60),
-      (9, 'ห้องอัญชัน', 10, 75), (10, 'ห้องราชพฤกษ์', 12, 90)
-      ON CONFLICT (id) DO NOTHING`;
+    // Rename only the original seeded name for each ID, retaining any operator edits.
+    await sql`WITH catalog (id, old_name, name, capacity, hourly_rate) AS (VALUES
+      (1, 'ห้องพิกุล', 'Focus 01', 2, 15),
+      (2, 'ห้องจำปี', 'Focus 02', 2, 15),
+      (3, 'ห้องมะลิ', 'Studio 01', 4, 30),
+      (4, 'ห้องโมก', 'Studio 02', 4, 30),
+      (5, 'ห้องสารภี', 'Team 01', 6, 45),
+      (6, 'ห้องแก้ว', 'Team 02', 6, 45),
+      (7, 'ห้องลำดวน', 'Workshop 01', 8, 60),
+      (8, 'ห้องพะยอม', 'Workshop 02', 8, 60),
+      (9, 'ห้องอัญชัน', 'Conference Room', 10, 75),
+      (10, 'ห้องราชพฤกษ์', 'Boardroom', 12, 90)
+    )
+    INSERT INTO private_rooms AS room (id, name, capacity, hourly_rate)
+    SELECT id, name, capacity, hourly_rate FROM catalog
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+    WHERE (room.id, room.name) IN (SELECT id, old_name FROM catalog)`;
 
     // Bookings table
     await sql`
@@ -249,10 +259,10 @@ function initDB(connection) {
     await sql`CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`;
 
-    // Keep the existing desk IDs and reservations when naming the original rooms.
-    await sql`UPDATE desks SET zone = CASE zone
-      WHEN 'Zone A' THEN 'ห้องแสงเช้า' WHEN 'Zone B' THEN 'ห้องร่มไทร' ELSE 'ห้องลานฟ้า' END
-      WHERE zone IN ('Zone A', 'Zone B', 'Zone C')`;
+    const { deskZones } = await import('./public/desk-zones.mjs');
+    for (const zone of deskZones) {
+      await sql`UPDATE desks SET zone = ${zone.name} WHERE zone = ANY(${zone.aliases}::varchar[])`;
+    }
     await sql`UPDATE bookings b SET total_baht=COALESCE(
       (SELECT p.amount FROM payments p WHERE p.id=b.payment_id), b.num_desks * ${PRICING.day}::integer
     ) WHERE b.total_baht IS NULL`;
@@ -261,7 +271,7 @@ function initDB(connection) {
     const deskCount = await sql`SELECT COUNT(*) as count FROM desks`;
     if (Number(deskCount[0].count) === 0) {
       for (let i = 1; i <= TOTAL_DESKS; i++) {
-        const zone = i <= 20 ? 'ห้องแสงเช้า' : i <= 40 ? 'ห้องร่มไทร' : 'ห้องลานฟ้า';
+        const zone = deskZones[i <= 20 ? 0 : i <= 40 ? 1 : 2].name;
         await sql`INSERT INTO desks (label, zone) VALUES (${`Desk ${i}`}, ${zone})`;
       }
       console.log('Seeded 50 desks');
