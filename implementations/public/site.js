@@ -3,7 +3,7 @@ const here = document.body.dataset.page;
 header.innerHTML = `
   <nav class="dashboard__nav customer-nav" aria-label="เมนูหลัก">
     <a class="dashboard__nav-logo" href="/" aria-label="SpaceHub หน้าจองพื้นที่">
-      <span class="navbar__logo-icon" aria-hidden="true">⬡</span>SpaceHub
+      <span class="navbar__logo-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3 27.5 9.5v13L16 29 4.5 22.5v-13Z" stroke="currentColor" stroke-width="2.2"/></svg></span><span class="wordmark">SpaceHub</span>
     </a>
     <div class="dashboard__nav-links"></div>
     <div class="nav-user"></div>
@@ -20,6 +20,12 @@ for (const [page, label, href] of [
     item.setAttribute('aria-current', 'page');
   }
   navigation.append(item);
+}
+
+const footer = document.getElementById('site-footer');
+if (footer) {
+  footer.innerHTML = `<div class="site-width footer-inner"><a href="/" class="wordmark">SpaceHub</a>
+    <span>รอบเข้าใช้ 08.00–18.00 น. (เวลาไทย)</span><a href="/my-bookings.html">การจองของฉัน</a></div>`;
 }
 
 export async function api(path, init = {}) {

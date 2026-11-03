@@ -1,5 +1,3 @@
-import { updateZonePhoto } from './room-photos.js';
-
 // Coordinates are in a 600 × 360 schematic. Desk numbers are the permanent
 // labels in the inventory, not array offsets or database primary keys.
 const WIDTH = 600;
@@ -215,7 +213,6 @@ export function renderFloorPlan({ zone, desks, free, selected, toggle }) {
   const focusedId = document.activeElement?.dataset.deskId;
   const changedZone = canvas.dataset.zone !== zone;
   const plan = plans.get(zone);
-  updateZonePhoto(plan?.code, zone, plan?.description);
   // A missing or renamed desk must not move every seat that follows it.
   // Ambiguous or newly added labels stay bookable in the additional list.
   const byLabel = new Map();

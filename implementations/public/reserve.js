@@ -10,7 +10,7 @@ import {
   thaiDate
 } from './site.js';
 import { renderFloorPlan, zoneButton, zoneFromCode } from './floor-plan.js';
-import { privateRoomPhoto, updateZonePhoto } from './room-photos.js';
+import { privateRoomPhoto, zonePhoto } from './room-photos.js';
 
 const $ = (id) => document.getElementById(id);
 const day = $('day'),
@@ -41,6 +41,9 @@ let slotStart = draft.start,
   slotEnd = draft.end,
   zone = zoneFromCode(query.get('zone')) || draft.zone;
 let requestKey = (kind === savedKind && draft.key) || crypto.randomUUID();
+let minimumCapacity =
+  kind === savedKind && Number.isInteger(draft.capacity) ? draft.capacity : 0;
+let summaryVisible = false;
 let schedule = null,
   settings,
   version = 0,
@@ -56,6 +59,7 @@ function saveDraft(reset = false) {
     JSON.stringify({
       day: day.value,
       kind,
+      capacity: minimumCapacity,
       start: slotStart,
       end: slotEnd,
       zone,
@@ -69,9 +73,14 @@ function availableIds(slot) {
 }
 function syncKindControls() {
   const roomMode = kind === 'room';
+  $('availability').dataset.kind = kind;
   $('desk-picker').hidden = roomMode;
+  $('map-panel').hidden = roomMode;
+  $('desk-total').hidden = roomMode;
   $('private-picker').hidden = !roomMode;
-  $('desks-heading').textContent = roomMode ? 'ห้องส่วนตัว' : 'เลือกโต๊ะจากผัง';
+  $('desks-heading').textContent = roomMode
+    ? 'ห้องส่วนตัว'
+    : 'โต๊ะทำงานรายที่นั่ง';
   $('resource-label').textContent = roomMode ? 'ห้องส่วนตัว' : 'ห้องและโต๊ะ';
   $('rate-label').textContent = roomMode
     ? 'ราคาทั้งห้องต่อชั่วโมง'
@@ -98,6 +107,8 @@ function summary() {
     total = desks.length * (settings?.price || 0);
   }
   $('total').textContent = baht.format(total);
+  $('mobile-total').textContent = baht.format(total);
+  $('mobile-review').hidden = !total || summaryVisible;
   reserve.disabled = submitting || !slot || slot.started || !selected.size;
 }
 function clearSchedule() {
@@ -117,7 +128,8 @@ function clearSchedule() {
     'extra-desks'
   ])
     $(id).hidden = true;
-  updateZonePhoto();
+  $('slots').disabled = true;
+  $('desk-total').textContent = '';
   $('plan-description').textContent = '';
   $('zone-title').textContent = 'ผังโต๊ะ';
   $('zone-count').textContent = '';
@@ -128,30 +140,19 @@ function clearSchedule() {
 function draw() {
   if (!schedule) return;
   const slot = activeSlot();
-  $('slots').replaceChildren(
-    ...schedule.slots.map((s) => {
-      const b = el(
-        'button',
-        s.startTime === '08:00' && s.endTime === '18:00'
-          ? 'เต็มวัน 08–18 น.'
-          : s.label
-      );
-      b.type = 'button';
-      b.disabled = s.started || !availableIds(s).length;
-      b.setAttribute('aria-pressed', String(s === slot));
-      b.onclick = () => {
-        slotStart = s.startTime;
-        slotEnd = s.endTime;
-        selected = new Set(
-          [...selected].filter((id) => availableIds(s).includes(id))
-        );
-        notice(message);
-        saveDraft(true);
-        draw();
-      };
-      return b;
-    })
-  );
+  const slotSelect = $('slots');
+  const options = schedule.slots.map((s) => {
+    const value = s.startTime + '/' + s.endTime;
+    const fullDay = s.startTime === '08:00' && s.endTime === '18:00';
+    const option = new Option(fullDay ? 'เต็มวัน 08–18' : s.label, value);
+    option.disabled = s.started || !availableIds(s).length;
+    option.selected = s === slot;
+    return option;
+  });
+  if (!slot)
+    options.unshift(new Option('ไม่มีรอบว่างในวันนี้', '', true, true));
+  slotSelect.replaceChildren(...options);
+  slotSelect.disabled = !slot;
   if (kind === 'room') drawPrivateRooms(slot);
   else drawDesks(slot);
   summary();
@@ -164,17 +165,31 @@ function drawPrivateRooms(slot) {
     : null;
   const free = new Set(availableIds(slot));
   const rooms = schedule.privateRooms || [];
-  $('private-price-heading').textContent = slot
-    ? 'ราคาเหมารอบนี้'
-    : 'ราคาต่อชั่วโมง';
-  $('private-count').textContent =
-    'ว่าง ' + free.size + ' / ' + rooms.length + ' ห้อง';
-  if (!rooms.length) {
-    list.replaceChildren(el('p', 'ยังไม่มีห้องส่วนตัวเปิดให้จอง', 'muted'));
+  const capacityFilter = $('capacity-filter');
+  const maximum = rooms.reduce((max, room) => Math.max(max, room.capacity), 0);
+  if (Number(capacityFilter.dataset.maximum) !== maximum) {
+    capacityFilter.dataset.maximum = maximum;
+    if (minimumCapacity > maximum) minimumCapacity = 0;
+    const options = [new Option('ทุกขนาด', '0')];
+    for (let n = 1; n <= maximum; n++)
+      options.push(new Option(n + ' คน', String(n)));
+    capacityFilter.replaceChildren(...options);
+  }
+  capacityFilter.value = String(minimumCapacity);
+  const matching = rooms.filter((room) => room.capacity >= minimumCapacity);
+  if (selected.size && !matching.some((room) => selected.has(room.id))) {
+    selected.clear();
+    saveDraft(true);
+    notice(message, 'กรุณาเลือกห้องที่รองรับจำนวนผู้เข้าใช้');
+  }
+  const freeCount = matching.filter((room) => free.has(room.id)).length;
+  $('private-count').textContent = 'พบห้องว่าง ' + freeCount + ' ห้อง';
+  if (!matching.length) {
+    list.replaceChildren(el('p', 'ไม่พบห้องตามจำนวนผู้ใช้ที่เลือก', 'muted'));
     return;
   }
   list.replaceChildren(
-    ...rooms.map((room) => {
+    ...matching.map((room) => {
       const row = el('label', null, 'private-option');
       const radio = document.createElement('input');
       radio.type = 'radio';
@@ -191,16 +206,23 @@ function drawPrivateRooms(slot) {
       const price = slot
         ? baht.format(room.hourlyRate * slot.durationHours)
         : baht.format(room.hourlyRate) + '/ชม.';
-      row.append(
+      const pick = el('span', null, 'room-choice');
+      pick.append(
         radio,
-        el('strong', room.name, 'private-name'),
-        el('span', 'สูงสุด ' + room.capacity + ' คน', 'private-capacity'),
-        el('span', price, 'private-price'),
-        el('span', radio.disabled ? 'ไม่ว่าง' : 'ว่าง', 'private-status')
+        el('span', 'เลือกห้อง', 'choice-label'),
+        el('span', 'เลือกแล้ว', 'chosen-label')
       );
+      const meta = el('span', null, 'room-meta');
+      meta.append(
+        el('span', 'สูงสุด ' + room.capacity + ' คน', 'private-capacity'),
+        el('span', radio.disabled ? 'ไม่ว่าง' : 'ว่าง', 'private-status'),
+        el('span', price + (slot ? ' / รอบ' : ''), 'private-price')
+      );
+      row.append(el('strong', room.name, 'private-name'), meta, pick);
       const line = el('div', null, 'private-line');
       line.append(
-        privateRoomPhoto(room) || el('span', '—', 'photo-unavailable'),
+        privateRoomPhoto(room) ||
+          el('span', 'ยังไม่มีภาพห้องนี้', 'photo-unavailable'),
         row
       );
       return line;
@@ -218,7 +240,15 @@ function drawDesks(slot) {
   const rooms = [...new Set(schedule.desks.map((d) => d.zone))];
   if (!rooms.includes(zone)) zone = rooms[0];
   const free = new Set(slot?.availableIds || []);
-  const focusedZone = document.activeElement?.dataset.zone;
+  $('desk-total').textContent =
+    'ที่นั่งว่าง ' + free.size + ' จาก ' + schedule.desks.length + ' ที่นั่ง';
+  const focused = document.activeElement;
+  const focusedZone = $('zones').contains(focused)
+    ? focused.dataset.zone
+    : null;
+  const focusedPhoto = $('zones').contains(focused)
+    ? focused.dataset.photo
+    : null;
   $('zones').replaceChildren(
     ...rooms.map((room) => {
       const desks = schedule.desks.filter((d) => d.zone === room);
@@ -239,12 +269,21 @@ function drawDesks(slot) {
         saveDraft();
         drawDesks(slot);
       };
-      return button;
+      const item = el('div', null, 'zone-item');
+      item.dataset.active = room === zone;
+      const photo = zonePhoto(button.dataset.zoneCode, room, 'โซนรายโต๊ะ');
+      if (photo) item.append(photo);
+      item.append(button);
+      return item;
     })
   );
-  if (focusedZone) {
-    [...$('zones').children]
-      .find((b) => b.dataset.zone === focusedZone)
+  if (focusedZone || focusedPhoto) {
+    [...$('zones').querySelectorAll('button')]
+      .find(
+        (b) =>
+          (focusedZone && b.dataset.zone === focusedZone) ||
+          (focusedPhoto && b.dataset.photo === focusedPhoto)
+      )
       ?.focus({ preventScroll: true });
   }
   const desks = schedule.desks.filter((d) => d.zone === zone);
@@ -285,26 +324,67 @@ function reconcileSelection() {
   return previousCount !== selected.size;
 }
 
-for (const radio of document.querySelectorAll('[name="booking-kind"]')) {
-  radio.checked = radio.value === kind;
-  radio.onchange = () => {
-    kind = radio.value;
-    const url = new URL(location.href);
-    if (kind === 'room') {
-      url.searchParams.set('type', 'private-room');
-      url.searchParams.delete('zone');
-    } else url.searchParams.delete('type');
-    history.replaceState(null, '', url);
+const kindSelect = $('booking-type');
+kindSelect.value = kind;
+kindSelect.onchange = () => {
+  kind = kindSelect.value;
+  const url = new URL(location.href);
+  if (kind === 'room') {
+    url.searchParams.set('type', 'private-room');
+    url.searchParams.delete('zone');
+  } else url.searchParams.set('type', 'desk');
+  history.replaceState(null, '', url);
+  selected.clear();
+  syncKindControls();
+  notice(message);
+  if (schedule) {
+    reconcileSelection();
+    draw();
+  } else summary();
+  saveDraft(true);
+};
+$('slots').onchange = () => {
+  const s = schedule?.slots.find(
+    (s) => s.startTime + '/' + s.endTime === $('slots').value
+  );
+  if (!s) return;
+  slotStart = s.startTime;
+  slotEnd = s.endTime;
+  selected = new Set(
+    [...selected].filter((id) => availableIds(s).includes(id))
+  );
+  notice(message);
+  saveDraft(true);
+  draw();
+};
+$('capacity-filter').onchange = () => {
+  minimumCapacity = Number($('capacity-filter').value);
+  if (
+    schedule?.privateRooms.some(
+      (r) => selected.has(r.id) && r.capacity < minimumCapacity
+    )
+  ) {
     selected.clear();
-    syncKindControls();
-    notice(message);
-    if (schedule) {
-      reconcileSelection();
-      draw();
-    } else summary();
+    notice(message, 'กรุณาเลือกห้องที่รองรับจำนวนผู้เข้าใช้');
     saveDraft(true);
-  };
-}
+  } else saveDraft();
+  if (schedule) draw();
+};
+$('reserve').onsubmit = async (event) => {
+  event.preventDefault();
+  await refresh();
+  if (schedule) {
+    $('desks-heading').focus({ preventScroll: true });
+    $('availability').scrollIntoView({ block: 'start' });
+  }
+};
+new IntersectionObserver(
+  ([entry]) => {
+    summaryVisible = entry.isIntersecting;
+    summary();
+  },
+  { threshold: 0.2 }
+).observe($('booking-summary'));
 syncKindControls();
 
 async function refresh(clear = false) {
@@ -318,7 +398,7 @@ async function refresh(clear = false) {
   const localVersion = ++version;
   if (clear) {
     clearSchedule();
-    $('freshness').textContent = 'กำลังโหลดผังโต๊ะ…';
+    $('freshness').textContent = 'กำลังตรวจสอบพื้นที่ว่าง…';
   }
   const freshness = $('freshness');
   try {
@@ -349,7 +429,7 @@ async function refresh(clear = false) {
   } catch (e) {
     if (localVersion !== version) return;
     clearSchedule();
-    freshness.textContent = 'โหลดผังโต๊ะไม่สำเร็จ';
+    freshness.textContent = 'โหลดข้อมูลพื้นที่ว่างไม่สำเร็จ';
     freshness.classList.add('stale');
     notice(message, 'ตรวจสอบการเชื่อมต่อแล้วเลือกวันที่อีกครั้ง');
   }
@@ -371,8 +451,10 @@ reserve.onclick = async () => {
       ? { privateRoomId: [...selected][0] }
       : { deskIds: [...selected] })
   };
-  const form = document.querySelector('.booking-form');
-  form.inert = true;
+  const controls = document.querySelectorAll('[data-booking-controls]');
+  controls.forEach((control) => {
+    control.inert = true;
+  });
   submitting = true;
   summary();
   saveDraft();
@@ -402,7 +484,9 @@ reserve.onclick = async () => {
     if (e.status === 409) await refresh();
   } finally {
     submitting = false;
-    form.inert = false;
+    controls.forEach((control) => {
+      control.inert = false;
+    });
     summary();
   }
 };

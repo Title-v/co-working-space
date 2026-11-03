@@ -2,118 +2,103 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1a73e8">
-  <title>จองพื้นที่ทำงาน · SpaceHub</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102747">
+  <title>พื้นที่ทำงานและห้องประชุม · SpaceHub</title>
+  <link rel="preload" href="/fonts/noto-serif-thai.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/brand.css">
   <link rel="stylesheet" href="/space.css">
   <link rel="stylesheet" href="/floor-plan.css">
 </head>
 <body data-page="reserve">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
-  <main id="main" class="workspace">
-    <header class="dashboard__welcome page-heading">
-      <h1>จองพื้นที่ทำงาน</h1>
-      <p>เลือกจองรายโต๊ะ หรือจองห้องส่วนตัวทั้งห้องตามวันและรอบเวลาที่ต้องการ</p>
-    </header>
+  <main id="main">
+    <section class="venue-banner" aria-labelledby="venue-title">
+      <img class="venue-banner-image" src="/images/company/workspace.webp" srcset="/images/company/workspace-small.webp 900w, /images/company/workspace.webp 1920w" sizes="100vw" width="1920" height="711" fetchpriority="high" alt="ภาพจำลองพื้นที่ทำงานไม้และกระจกที่เปิดรับแสงจากสวน">
+      <div class="venue-copy site-width">
+        <h1 id="venue-title">พื้นที่ทำงานและ<br>ห้องประชุม</h1>
+        <p>เลือกจองรายโต๊ะหรือห้องส่วนตัวตามวันและเวลาที่ต้องการ</p>
+      </div>
+      <span class="image-credit">ภาพจำลองพื้นที่ทำงาน</span>
+    </section>
 
-    <div class="booking-layout" id="reserve">
-      <div class="booking-form">
-        <section class="booking-section" aria-labelledby="schedule-heading">
-          <h2 id="schedule-heading" class="booking-section__title">ประเภทการจองและเวลาเข้าใช้</h2>
-          <fieldset class="booking-kind">
-            <legend class="field-label">ประเภทการจอง</legend>
-            <label><input type="radio" name="booking-kind" value="desk" checked> รายโต๊ะ</label>
-            <label><input type="radio" name="booking-kind" value="room"> ห้องส่วนตัวทั้งห้อง</label>
-          </fieldset>
-          <div class="schedule-fields">
-            <div class="form-group">
-              <label for="day">วันที่เข้าใช้</label>
-              <input type="date" id="day" required>
-            </div>
-            <div>
-              <div id="time-label" class="field-label">รอบเวลา <span class="muted"> (เวลาไทย)</span></div>
-              <div id="slots" class="slot-grid" role="group" aria-labelledby="time-label"></div>
-            </div>
-          </div>
-        </section>
+    <form id="reserve" class="booking-search" aria-label="ค้นหาพื้นที่ว่าง" data-booking-controls>
+      <label for="booking-type">ประเภทการจอง
+        <select id="booking-type" name="booking-kind">
+          <option value="desk">โต๊ะทำงานรายที่นั่ง</option>
+          <option value="room">ห้องส่วนตัว</option>
+        </select>
+      </label>
+      <label for="day">วันที่เข้าใช้<input type="date" id="day" required></label>
+      <label for="slots">รอบเวลา (เวลาไทย)<select id="slots" disabled><option>กำลังโหลด…</option></select></label>
+      <button type="submit" class="primary search-action">ดูพื้นที่ว่าง</button>
+    </form>
 
-        <section class="booking-section" aria-labelledby="desks-heading">
-          <div class="section-heading">
-            <h2 id="desks-heading" class="booking-section__title">เลือกโต๊ะจากผัง</h2>
-            <span id="freshness" class="updated" role="status">กำลังโหลดผังโต๊ะ…</span>
-          </div>
-          <div id="desk-picker">
-            <div id="zones" class="zone-picker" role="group" aria-label="เลือกโซนจากผังย่อ"></div>
-            <div class="map-heading">
-              <div class="zone-identity">
-                <div id="zone-photo" hidden></div>
-                <div>
-                  <h3 id="zone-title">ผังโต๊ะ</h3>
-                  <p id="plan-description" class="plan-description"></p>
-                </div>
-              </div>
-              <div class="map-tools">
-                <span id="zone-count"></span>
-                <div id="plan-zoom" class="plan-zoom" role="group" aria-label="ขนาดผัง" hidden>
-                  <button id="zoom-out" type="button" aria-label="ย่อผัง" aria-controls="plan-viewport" disabled>−</button>
-                  <output id="zoom-value" aria-live="polite">100%</output>
-                  <button id="zoom-in" type="button" aria-label="ขยายผัง" aria-controls="plan-viewport">+</button>
-                </div>
-              </div>
-            </div>
-            <div id="desk-map" role="group" aria-labelledby="zone-title">
-              <div id="plan-viewport" class="plan-viewport" tabindex="0" aria-label="ผังโต๊ะ เลื่อนดูได้เมื่อขยาย" role="region" hidden>
-                <div id="floor-canvas" class="floor-canvas"></div>
-              </div>
-              <h4 id="extra-heading" class="extra-heading" hidden>โต๊ะที่ยังไม่ระบุตำแหน่งในผัง</h4>
-              <div id="extra-desks" class="desk-grid" hidden></div>
-            </div>
-            <div class="map-key">
-              <span><i aria-hidden="true"></i>ว่าง</span>
-              <span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span>
-              <span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span>
-              <small>ผังจำลอง · กดหมายเลขเพื่อเลือกได้หลายโต๊ะ</small>
+    <section class="availability site-width" id="availability" data-kind="desk" aria-labelledby="desks-heading">
+      <header class="inventory-heading">
+        <h2 id="desks-heading" tabindex="-1">โต๊ะทำงานรายที่นั่ง</h2>
+        <div class="inventory-meta"><span id="freshness" class="updated" role="status">กำลังตรวจสอบพื้นที่ว่าง…</span><span id="desk-total"></span></div>
+      </header>
+      <div id="desk-picker" data-booking-controls>
+        <div id="zones" class="zone-picker" role="group" aria-label="เลือกโซนรายโต๊ะ"></div>
+      </div>
+      <div id="map-panel" class="map-panel" data-booking-controls>
+        <div class="map-heading">
+          <div><h3 id="zone-title">ผังโต๊ะ</h3><p id="plan-description" class="plan-description"></p></div>
+          <div class="map-tools">
+            <span id="zone-count"></span>
+            <div id="plan-zoom" class="plan-zoom" role="group" aria-label="ขนาดผัง" hidden>
+              <button id="zoom-out" type="button" aria-label="ย่อผัง" aria-controls="plan-viewport" disabled>−</button>
+              <output id="zoom-value" aria-live="polite">100%</output>
+              <button id="zoom-in" type="button" aria-label="ขยายผัง" aria-controls="plan-viewport">+</button>
             </div>
           </div>
-          <div id="private-picker" hidden>
-            <div class="private-intro"><span>เลือกได้หนึ่งห้องต่อรายการ · กดภาพจำลองเพื่อขยาย</span><span id="private-count"></span></div>
-            <div class="room-columns" aria-hidden="true">
-              <span>ภาพห้อง</span>
-              <div class="room-fields"><span>ชื่อห้อง</span><span>ความจุ</span><span id="private-price-heading">ราคาเหมารอบนี้</span><span>สถานะ</span></div>
-            </div>
-            <div id="private-room-list" role="group" aria-label="เลือกห้องส่วนตัว"></div>
+        </div>
+        <div id="desk-map" role="group" aria-labelledby="zone-title">
+          <div id="plan-viewport" class="plan-viewport" tabindex="0" aria-label="ผังโต๊ะ เลื่อนดูได้เมื่อขยาย" role="region" hidden>
+            <div id="floor-canvas" class="floor-canvas"></div>
           </div>
-        </section>
+          <h4 id="extra-heading" class="extra-heading" hidden>โต๊ะที่ยังไม่ระบุตำแหน่งในผัง</h4>
+          <div id="extra-desks" class="desk-grid" hidden></div>
+        </div>
+        <div class="map-key"><span><i aria-hidden="true"></i>ว่าง</span><span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span><span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span><small>ผังจำลอง · เลือกได้หลายโต๊ะ</small></div>
       </div>
 
-      <aside class="booking-section summary" aria-labelledby="summary-heading">
-        <h2 id="summary-heading" class="booking-section__title">สรุปการจอง</h2>
+      <div id="private-picker" class="room-directory" data-booking-controls hidden>
+        <div class="directory-filter">
+          <label for="capacity-filter">จำนวนผู้เข้าใช้</label>
+          <select id="capacity-filter"><option value="0">ทุกขนาด</option></select>
+          <span id="private-count" role="status"></span>
+        </div>
+        <div id="private-room-list" role="group" aria-label="เลือกห้องส่วนตัว"></div>
+        <p class="media-note">ภาพจำลองประกอบการจอง · กดภาพเพื่อขยาย</p>
+      </div>
+
+      <aside class="summary" id="booking-summary" aria-labelledby="summary-heading" tabindex="-1">
+        <h2 id="summary-heading">สรุปการจอง</h2>
         <dl class="details">
           <div><dt>วันที่เข้าใช้</dt><dd id="sum-day">—</dd></div>
-          <div><dt>รอบเวลา</dt><dd id="sum-time">—</dd></div>
+          <div><dt>รอบเวลา (เวลาไทย)</dt><dd id="sum-time">—</dd></div>
           <div><dt id="resource-label">ห้องและโต๊ะ</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div>
           <div id="capacity-row" hidden><dt>ความจุสูงสุด</dt><dd id="sum-capacity">—</dd></div>
           <div><dt id="rate-label">ราคาต่อโต๊ะต่อรอบ</dt><dd id="unit-price">—</dd></div>
         </dl>
         <div class="amount"><span>ยอดชำระเดโม</span><strong id="total">฿0</strong></div>
-        <button id="reserve-button" class="btn-apply" type="button" disabled>จองและไปชำระเดโม</button>
-        <p class="fine-print">ระบบกันพื้นที่ให้สูงสุด 30 นาที การชำระเงินเป็นแบบจำลอง</p>
+        <button id="reserve-button" class="primary" type="button" disabled>จองและไปชำระเดโม</button>
+        <p class="fine-print">ระบบกันพื้นที่สูงสุด 30 นาทีระหว่างรอชำระเดโม</p>
         <p id="booking-message" class="notice" role="alert" hidden></p>
       </aside>
+    </section>
+    <div id="mobile-review" class="mobile-review" hidden>
+      <span>ยอดชำระเดโม <strong id="mobile-total">฿0</strong></span><a href="#booking-summary" class="primary">ดูสรุปการจอง</a>
     </div>
   </main>
+  <footer id="site-footer"></footer>
   <dialog id="room-photo-dialog" class="room-photo-dialog" aria-labelledby="room-photo-title" aria-describedby="room-photo-caption">
     <div class="photo-panel">
-      <header>
-        <h2 id="room-photo-title">ภาพห้อง</h2>
-        <form method="dialog"><button type="submit" class="secondary" autofocus>ปิดภาพ</button></form>
-      </header>
-      <div class="photo-stage">
-        <img id="room-photo-full" width="1200" height="800" alt="" hidden>
-        <p id="room-photo-status" role="status"></p>
-      </div>
+      <header><h2 id="room-photo-title">ภาพห้อง</h2><form method="dialog"><button type="submit" class="secondary" autofocus>ปิดภาพ</button></form></header>
+      <div class="photo-stage"><img id="room-photo-full" width="1200" height="800" alt="" hidden><p id="room-photo-status" role="status"></p></div>
       <p id="room-photo-caption"></p>
     </div>
   </dialog>

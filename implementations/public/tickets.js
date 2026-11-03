@@ -130,7 +130,30 @@ function ticket(b) {
   if (checkout && b.status !== 'pending')
     actions.append(link('ดูการจองของฉัน', '/my-bookings.html', 'secondary'));
   card.append(actions);
-  return card;
+  const zoneKeys = {
+    ห้องแสงเช้า: 'zone-a',
+    ห้องร่มไทร: 'zone-b',
+    ห้องลานฟ้า: 'zone-c'
+  };
+  const room = b.private_room;
+  const key = room
+    ? room.id >= 1 && room.id <= 10
+      ? 'private-' + String(room.id).padStart(2, '0')
+      : null
+    : zoneKeys[b.desks[0]?.zone];
+  if (!key) return card;
+  const wrap = el('div', null, 'ticket-wrap');
+  const photo = el('figure', null, 'ticket-photo');
+  const img = new Image(1200, 800);
+  img.alt = 'ภาพจำลอง' + (room?.name || b.desks[0].zone);
+  img.loading = 'lazy';
+  img.src = '/images/rooms/' + key + '.webp';
+  photo.append(
+    img,
+    el('figcaption', (room?.name || b.desks[0].zone) + ' · ภาพจำลอง')
+  );
+  wrap.append(photo, card);
+  return wrap;
 }
 let lastExpiryCheck = 0;
 function tick() {
@@ -173,7 +196,14 @@ async function load() {
         el('p', 'เลือกวันและรอบเวลาเพื่อดูโต๊ะหรือห้องส่วนตัวที่ว่าง', 'muted'),
         link('เลือกพื้นที่ทำงาน', '/#reserve', 'primary')
       );
-      list.replaceChildren(box);
+      const wrap = el('div', null, 'ticket-wrap');
+      const photo = el('figure', null, 'ticket-photo');
+      const img = new Image(1200, 800);
+      img.src = '/images/rooms/zone-c.webp';
+      img.alt = 'ภาพจำลองห้องลานฟ้า';
+      photo.append(img, el('figcaption', 'ห้องลานฟ้า · ภาพจำลอง'));
+      wrap.append(photo, box);
+      list.replaceChildren(wrap);
     }
     const confirmed = new URLSearchParams(location.search).get('confirmed');
     if (

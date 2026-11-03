@@ -3,16 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1a73e8">
+  <meta name="theme-color" content="#102747">
   <title>เข้าสู่ระบบ · SpaceHub</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/brand.css">
   <link rel="stylesheet" href="/space.css">
 </head>
 <body data-page="login">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
   <header id="site-header"></header>
   <main id="main" class="workspace workspace--account">
-    <section class="auth-card account-form" aria-labelledby="account-title">
+    <div class="account-layout">
+      <figure class="account-visual"><img src="/images/rooms/zone-a.webp" width="1200" height="800" alt="บรรยากาศห้องแสงเช้า"><figcaption>ห้องแสงเช้า · ภาพจำลอง</figcaption></figure>
+      <section class="auth-card account-form" aria-labelledby="account-title">
       <header class="auth-card__header">
         <h1 id="account-title" class="auth-card__title">เข้าสู่ระบบ</h1>
         <p class="auth-card__subtitle">เข้าสู่ระบบเพื่อจองพื้นที่หรือดูรายการจองของคุณ</p>
@@ -30,8 +32,10 @@
         <button class="btn-submit" type="submit">เข้าสู่ระบบ</button>
       </form>
       <p class="auth-card__footer">ยังไม่มีบัญชี <a id="switch-account" href="/register.html">สมัครสมาชิก</a></p>
-    </section>
+      </section>
+    </div>
   </main>
+  <footer id="site-footer"></footer>
   <script type="module" src="/account.js"></script>
 </body>
 </html>

@@ -6,13 +6,14 @@
     <meta name="description" content="SpaceHub Manager Dashboard — revenue, reports, and employee management.">
     <title>Manager Dashboard — SpaceHub</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/brand.css">
+    <link rel="stylesheet" href="/staff-brand.css">
 </head>
-<body>
+<body class="staff-portal">
     <div class="dashboard">
-        <nav class="dashboard__nav">
+        <header class="staff-mast"><nav class="dashboard__nav">
             <a href="index.html" class="dashboard__nav-logo">
-                <div class="navbar__logo-icon" style="width:32px;height:32px;font-size:0.9rem;">⬡</div>
-                SpaceHub
+                <span class="navbar__logo-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3 27.5 9.5v13L16 29 4.5 22.5v-13Z" stroke="currentColor" stroke-width="2.2"/></svg></span><span class="wordmark">SpaceHub</span>
             </a>
             <div class="dashboard__nav-links">
                 <span class="nav-role-badge nav-role-badge--manager">Manager Portal · Demo payments</span><a class="nav-link" href="/employee-dashboard.html">Reservations &amp; check-in</a>
@@ -26,13 +27,14 @@
                         <span class="profile-menu__item-icon">👷</span> Employee View
                     </a>
                     <button class="profile-menu__item profile-menu__item--danger" onclick="handleLogout()">
-                        <span class="profile-menu__item-icon">🚪</span> Sign Out
+                        Sign Out
                     </button>
                 </div>
             </div>
-        </nav>
+        </nav></header>
 
         <div class="dashboard__content">
+            <header class="staff-title"><h1>ภาพรวมการดำเนินงาน</h1></header>
             <!-- Overview Cards -->
             <div class="revenue-cards" id="overviewCards">
                 <div class="revenue-card">

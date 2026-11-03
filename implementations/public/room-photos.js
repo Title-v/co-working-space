@@ -21,7 +21,6 @@ const descriptions = new Map([
 const dialog = document.getElementById('room-photo-dialog');
 const fullImage = document.getElementById('room-photo-full');
 const photoStatus = document.getElementById('room-photo-status');
-const zoneHost = document.getElementById('zone-photo');
 
 function photoButton(key, name, detail, zone = false) {
   const button = document.createElement('button');
@@ -33,11 +32,16 @@ function photoButton(key, name, detail, zone = false) {
   button.setAttribute('aria-controls', dialog.id);
   button.title = 'ดูภาพจำลอง' + name;
 
-  const thumb = new Image(270, 180);
+  const thumb = new Image(1200, 800);
   thumb.alt = '';
   thumb.loading = zone ? 'eager' : 'lazy';
   thumb.decoding = 'async';
-  thumb.src = '/images/rooms/' + key + '-thumb.webp';
+  const path = '/images/rooms/' + key;
+  thumb.sizes = zone
+    ? '(max-width: 640px) 88vw, 32vw'
+    : '(max-width: 640px) 94vw, (max-width: 900px) 46vw, 32vw';
+  thumb.srcset = path + '-thumb.webp 270w, ' + path + '.webp 1200w';
+  thumb.src = path + '.webp';
   button.append(thumb);
   const icon = document.createElement('span');
   icon.className = 'photo-expand';
@@ -68,17 +72,9 @@ function photoButton(key, name, detail, zone = false) {
   return button;
 }
 
-export function updateZonePhoto(code, name, description) {
+export function zonePhoto(code, name, detail) {
   const key = code && 'zone-' + code.toLowerCase();
-  if (!descriptions.has(key)) {
-    zoneHost.replaceChildren();
-    zoneHost.hidden = true;
-    return;
-  }
-  if (zoneHost.firstElementChild?.dataset.photo !== key) {
-    zoneHost.replaceChildren(photoButton(key, name, description, true));
-  }
-  zoneHost.hidden = false;
+  return descriptions.has(key) ? photoButton(key, name, detail, true) : null;
 }
 
 export function privateRoomPhoto(room) {

@@ -1,0 +1,107 @@
+.staff-portal .dashboard {
+  background: #fff;
+}
+.staff-portal .dashboard__nav {
+  justify-content: space-between;
+}
+.staff-portal .dashboard__nav-links {
+  margin-left: auto;
+}
+.staff-portal .dashboard__nav-logo {
+  color: var(--navy);
+}
+.staff-portal .dashboard__content {
+  max-width: 1320px;
+  margin: 32px auto;
+  padding: 0 36px;
+}
+.staff-title {
+  padding: 20px 24px 20px min(4vw, 52px);
+  min-height: 136px;
+  display: flex;
+  align-items: center;
+  color: white;
+  background:
+    linear-gradient(90deg, #102645df, #10264510),
+    url('/images/company/workspace-small.webp') center 52% / cover;
+  border-bottom: 4px solid var(--brass);
+  margin-bottom: 24px;
+}
+.staff-title h1,
+.staff-portal .booking-section__title {
+  font-family: var(--display);
+}
+.staff-title h1 {
+  font-size: clamp(1.7rem, 3vw, 2.8rem);
+}
+.staff-portal .tab-nav {
+  background: white;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0;
+  gap: 15px;
+}
+.staff-portal .tab-nav__item {
+  border-radius: 0;
+  padding: 10px 5px;
+}
+.staff-portal .tab-nav__item--active {
+  background: transparent;
+  color: var(--navy);
+  border-bottom: 3px solid var(--brass);
+  box-shadow: none;
+}
+.staff-portal .booking-section,
+.staff-portal .report-card,
+.staff-portal .stat-card {
+  border-radius: 2px;
+  box-shadow: none;
+}
+.staff-portal .booking-section {
+  padding: 22px 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+.staff-portal .booking-section__title {
+  color: var(--navy);
+}
+.staff-portal :is(input, button, select, textarea) {
+  font-family: var(--sans);
+}
+.staff-portal .btn-apply,
+.staff-portal .btn-checkin {
+  background: var(--navy);
+  border-radius: 2px;
+}
+.staff-portal .profile-menu__avatar {
+  background: var(--navy);
+  color: white;
+  border: 0;
+}
+.staff-portal .nav-role-badge {
+  background: var(--wash);
+  color: var(--navy);
+  border-radius: 2px;
+}
+@media (max-width: 760px) {
+  .staff-portal .dashboard__content {
+    padding: 0 15px;
+    margin: 18px auto;
+  }
+  .staff-portal .dashboard__nav {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding-block: 8px;
+  }
+  .staff-portal .dashboard__nav-links {
+    flex-wrap: wrap;
+  }
+  .staff-portal .tab-nav {
+    overflow: auto;
+  }
+  .staff-title {
+    min-height: 103px;
+    padding: 15px;
+  }
+}

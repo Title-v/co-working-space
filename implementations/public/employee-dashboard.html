@@ -6,13 +6,14 @@
     <meta name="description" content="SpaceHub Employee Dashboard — manage reservations, equipment, and operations.">
     <title>Employee Dashboard — SpaceHub</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/brand.css">
+    <link rel="stylesheet" href="/staff-brand.css">
 </head>
-<body>
+<body class="staff-portal">
     <div class="dashboard">
-        <nav class="dashboard__nav">
+        <header class="staff-mast"><nav class="dashboard__nav">
             <a href="index.html" class="dashboard__nav-logo">
-                <div class="navbar__logo-icon" style="width:32px;height:32px;font-size:0.9rem;">⬡</div>
-                SpaceHub
+                <span class="navbar__logo-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3 27.5 9.5v13L16 29 4.5 22.5v-13Z" stroke="currentColor" stroke-width="2.2"/></svg></span><span class="wordmark">SpaceHub</span>
             </a>
             <div class="dashboard__nav-links">
                 <span class="nav-role-badge">Employee Portal</span>
@@ -23,13 +24,14 @@
                 </button>
                 <div class="profile-menu__dropdown" id="profileDropdown">
                     <button class="profile-menu__item profile-menu__item--danger" onclick="handleLogout()">
-                        <span class="profile-menu__item-icon">🚪</span> Sign Out
+                        Sign Out
                     </button>
                 </div>
             </div>
-        </nav>
+        </nav></header>
 
         <div class="dashboard__content">
+            <header class="staff-title"><h1>การจัดการพื้นที่และเช็กอิน</h1></header>
             <!-- Tab Navigation -->
             <div class="tab-nav">
                 <button class="tab-nav__item tab-nav__item--active" onclick="switchTab('reservations')">Reservations</button>

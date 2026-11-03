@@ -1,52 +1,73 @@
 /* Zone previews and interactive desk positions use the same plan coordinates. */
+/* The three room photographs are the navigation for the desk floor plans. */
 .zone-picker {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 16px;
+}
+.zone-item {
+  min-width: 0;
+  border: 1px solid #c9d0d7;
+  background: white;
+}
+.zone-item[data-active='true'] {
+  outline: 3px solid var(--brass);
+  outline-offset: -2px;
+}
+.zone-item .photo-open {
+  aspect-ratio: 2.35;
+}
+.zone-item .photo-expand {
+  width: auto;
+  display: inline-flex;
+  gap: 4px;
+  padding: 2px 5px;
+  height: 21px;
+  font-size: 10px;
 }
 .zone-choice {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 9px 10px;
+  justify-content: flex-start;
+  gap: 13px;
+  padding: 11px 15px;
+  border: 0;
+  border-top: 1px solid #d1d6db;
+  border-radius: 0;
+  background: white;
+  color: var(--navy);
   text-align: left;
-  color: var(--gray-800);
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: 7px;
-  font: inherit;
 }
 .zone-choice:hover {
-  border-color: #91acd0;
+  background: var(--gray-100);
 }
 .zone-choice[aria-pressed='true'] {
-  color: var(--primary-dark);
-  background: var(--light-blue);
-  border-color: var(--primary);
-  box-shadow: inset 0 0 0 1px var(--primary);
+  background: var(--navy);
+  color: white;
+  border-color: var(--brass);
+  box-shadow: none;
 }
 .zone-choice strong,
 .zone-choice small {
   display: block;
 }
 .zone-choice strong {
-  font-size: 0.88rem;
+  font: 600 clamp(1.05rem, 1.42vw, 1.5rem) / 1.4 var(--display);
 }
 .zone-choice small {
-  font-size: 0.74rem;
-  color: #556579;
-  font-variant-numeric: tabular-nums;
+  font-size: 0.76rem;
+  font-weight: 400;
 }
 .zone-preview {
   position: relative;
   flex: none;
-  width: 49px;
-  height: 31px;
-  color: #79899a;
+  width: 48px;
+  height: 30px;
+  color: #708196;
 }
 .zone-choice[aria-pressed='true'] .zone-preview {
-  color: var(--primary);
+  color: #d9b980;
 }
 .zone-preview .mini-wall {
   stroke: currentColor;
@@ -56,6 +77,7 @@
 .zone-preview .mini-desk {
   fill: currentColor;
 }
+
 .map-heading {
   align-items: center;
   flex-wrap: wrap;
@@ -115,8 +137,8 @@
   height: clamp(256px, 60cqw, 445px);
   overflow: auto;
   border: 1px solid #d1dbe4;
-  border-radius: 8px;
-  background: #f2f5f8;
+  border-radius: 2px;
+  background: #f2f3f2;
 }
 .plan-viewport[data-zoomed='true'] {
   cursor: grab;
@@ -325,6 +347,13 @@
 @media (max-width: 540px) {
   .zone-picker {
     gap: 5px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .zone-item .photo-open {
+    aspect-ratio: 1.5;
+  }
+  .zone-item .photo-expand {
+    display: none;
   }
   .zone-choice {
     flex-direction: column;
