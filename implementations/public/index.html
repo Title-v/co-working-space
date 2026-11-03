@@ -7,6 +7,7 @@
   <title>จองพื้นที่ทำงาน · SpaceHub</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/space.css">
+  <link rel="stylesheet" href="/floor-plan.css">
 </head>
 <body data-page="reserve">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
@@ -40,21 +41,37 @@
 
         <section class="booking-section" aria-labelledby="desks-heading">
           <div class="section-heading">
-            <h2 id="desks-heading" class="booking-section__title">ห้องและโต๊ะว่าง</h2>
+            <h2 id="desks-heading" class="booking-section__title">เลือกโต๊ะจากผัง</h2>
             <span id="freshness" class="updated" role="status">กำลังโหลดผังโต๊ะ…</span>
           </div>
           <div id="desk-picker">
-            <div id="zones" class="room-tabs" role="group" aria-label="เลือกห้อง"></div>
+            <div id="zones" class="zone-picker" role="group" aria-label="เลือกโซนจากผังย่อ"></div>
             <div class="map-heading">
-              <h3 id="zone-title">ผังโต๊ะ</h3>
-              <span id="zone-count"></span>
+              <div>
+                <h3 id="zone-title">ผังโต๊ะ</h3>
+                <p id="plan-description" class="plan-description"></p>
+              </div>
+              <div class="map-tools">
+                <span id="zone-count"></span>
+                <div id="plan-zoom" class="plan-zoom" role="group" aria-label="ขนาดผัง" hidden>
+                  <button id="zoom-out" type="button" aria-label="ย่อผัง" aria-controls="plan-viewport" disabled>−</button>
+                  <output id="zoom-value" aria-live="polite">100%</output>
+                  <button id="zoom-in" type="button" aria-label="ขยายผัง" aria-controls="plan-viewport">+</button>
+                </div>
+              </div>
             </div>
-            <div id="desk-map" class="desk-grid" role="group" aria-label="เลือกโต๊ะในห้อง"></div>
+            <div id="desk-map" role="group" aria-labelledby="zone-title">
+              <div id="plan-viewport" class="plan-viewport" tabindex="0" aria-label="ผังโต๊ะ เลื่อนดูได้เมื่อขยาย" role="region" hidden>
+                <div id="floor-canvas" class="floor-canvas"></div>
+              </div>
+              <h4 id="extra-heading" class="extra-heading" hidden>โต๊ะที่ยังไม่ระบุตำแหน่งในผัง</h4>
+              <div id="extra-desks" class="desk-grid" hidden></div>
+            </div>
             <div class="map-key">
               <span><i aria-hidden="true"></i>ว่าง</span>
               <span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span>
               <span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span>
-              <small>เลือกได้มากกว่าหนึ่งโต๊ะ</small>
+              <small>ผังจำลอง · กดหมายเลขเพื่อเลือกได้หลายโต๊ะ</small>
             </div>
           </div>
           <div id="private-picker" hidden>

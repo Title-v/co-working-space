@@ -1,7 +1,6 @@
 import {
   api,
   baht,
-  deskMark,
   formatDesks,
   el,
   loginUrl,
@@ -10,6 +9,7 @@ import {
   staffHome,
   thaiDate
 } from './site.js';
+import { renderFloorPlan, zoneButton, zoneFromCode } from './floor-plan.js';
 
 const $ = (id) => document.getElementById(id);
 const day = $('day'),
@@ -23,7 +23,8 @@ try {
   draft = {};
 }
 const savedKind = draft.kind === 'room' ? 'room' : 'desk';
-const linkedKind = new URLSearchParams(location.search).get('type');
+const query = new URLSearchParams(location.search);
+const linkedKind = query.get('type');
 let kind =
   linkedKind === 'private-room'
     ? 'room'
@@ -37,7 +38,7 @@ const savedIds =
 let selected = new Set(kind === 'room' ? savedIds.slice(0, 1) : savedIds);
 let slotStart = draft.start,
   slotEnd = draft.end,
-  zone = draft.zone;
+  zone = zoneFromCode(query.get('zone')) || draft.zone;
 let requestKey = (kind === savedKind && draft.key) || crypto.randomUUID();
 let schedule = null,
   settings,
@@ -69,7 +70,7 @@ function syncKindControls() {
   const roomMode = kind === 'room';
   $('desk-picker').hidden = roomMode;
   $('private-picker').hidden = !roomMode;
-  $('desks-heading').textContent = roomMode ? 'ห้องส่วนตัว' : 'ห้องและโต๊ะว่าง';
+  $('desks-heading').textContent = roomMode ? 'ห้องส่วนตัว' : 'เลือกโต๊ะจากผัง';
   $('resource-label').textContent = roomMode ? 'ห้องส่วนตัว' : 'ห้องและโต๊ะ';
   $('rate-label').textContent = roomMode
     ? 'ราคาทั้งห้องต่อชั่วโมง'
@@ -100,8 +101,22 @@ function summary() {
 }
 function clearSchedule() {
   schedule = null;
-  for (const id of ['slots', 'zones', 'desk-map', 'private-room-list'])
+  for (const id of [
+    'slots',
+    'zones',
+    'floor-canvas',
+    'extra-desks',
+    'private-room-list'
+  ])
     $(id).replaceChildren();
+  for (const id of [
+    'plan-viewport',
+    'plan-zoom',
+    'extra-heading',
+    'extra-desks'
+  ])
+    $(id).hidden = true;
+  $('plan-description').textContent = '';
   $('zone-title').textContent = 'ผังโต๊ะ';
   $('zone-count').textContent = '';
   $('private-count').textContent = '';
@@ -187,55 +202,58 @@ function drawPrivateRooms(slot) {
 function drawDesks(slot) {
   const rooms = [...new Set(schedule.desks.map((d) => d.zone))];
   if (!rooms.includes(zone)) zone = rooms[0];
+  const free = new Set(slot?.availableIds || []);
+  const focusedZone = document.activeElement?.dataset.zone;
   $('zones').replaceChildren(
     ...rooms.map((room) => {
-      const b = el('button', room);
-      b.type = 'button';
-      b.setAttribute('aria-pressed', String(room === zone));
-      b.onclick = () => {
+      const desks = schedule.desks.filter((d) => d.zone === room);
+      const button = zoneButton(
+        room,
+        desks.filter((d) => free.has(d.id)).length,
+        desks.length,
+        room === zone
+      );
+      button.onclick = () => {
+        if (zone === room) return;
         zone = room;
+        const url = new URL(location.href);
+        if (button.dataset.zoneCode)
+          url.searchParams.set('zone', button.dataset.zoneCode);
+        else url.searchParams.delete('zone');
+        history.replaceState(null, '', url);
         saveDraft();
-        draw();
+        drawDesks(slot);
       };
-      return b;
+      return button;
     })
   );
-  const roomDesks = schedule.desks.filter((d) => d.zone === zone);
-  const free = new Set(slot?.availableIds || []);
-  $('zone-title').textContent = zone ? 'หมายเลขโต๊ะ' : 'ยังไม่มีโต๊ะเปิดให้จอง';
+  if (focusedZone) {
+    [...$('zones').children]
+      .find((b) => b.dataset.zone === focusedZone)
+      ?.focus({ preventScroll: true });
+  }
+  const desks = schedule.desks.filter((d) => d.zone === zone);
+  $('zone-title').textContent = zone ? 'ผัง' + zone : 'ยังไม่มีโต๊ะเปิดให้จอง';
   $('zone-count').textContent = slot
     ? 'ว่าง ' +
-      roomDesks.filter((d) => free.has(d.id)).length +
+      desks.filter((d) => free.has(d.id)).length +
       ' / ' +
-      roomDesks.length +
+      desks.length +
       ' โต๊ะ'
     : 'ไม่มีรอบว่างในวันนี้';
-  $('desk-map').replaceChildren(
-    ...roomDesks.map((d) => {
-      const b = el('button', null, 'desk');
-      b.type = 'button';
-      b.innerHTML = deskMark;
-      b.append(el('span', d.label.replace(/^Desk /, 'โต๊ะ ')));
-      b.disabled = !free.has(d.id);
-      b.setAttribute('aria-pressed', String(selected.has(d.id)));
-      b.setAttribute(
-        'aria-label',
-        d.zone +
-          ' ' +
-          d.label.replace(/^Desk /, 'โต๊ะ ') +
-          ' ' +
-          (b.disabled ? 'ไม่ว่าง' : 'ว่าง')
-      );
-      b.onclick = () => {
-        if (selected.has(d.id)) selected.delete(d.id);
-        else selected.add(d.id);
-        notice(message);
-        saveDraft(true);
-        draw();
-      };
-      return b;
-    })
-  );
+  renderFloorPlan({
+    zone,
+    desks,
+    free,
+    selected,
+    toggle(id) {
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      notice(message);
+      saveDraft(true);
+      summary();
+    }
+  });
 }
 function reconcileSelection() {
   const prior = activeSlot();
@@ -257,8 +275,10 @@ for (const radio of document.querySelectorAll('[name="booking-kind"]')) {
   radio.onchange = () => {
     kind = radio.value;
     const url = new URL(location.href);
-    if (kind === 'room') url.searchParams.set('type', 'private-room');
-    else url.searchParams.delete('type');
+    if (kind === 'room') {
+      url.searchParams.set('type', 'private-room');
+      url.searchParams.delete('zone');
+    } else url.searchParams.delete('type');
     history.replaceState(null, '', url);
     selected.clear();
     syncKindControls();

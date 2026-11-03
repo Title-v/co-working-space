@@ -1,5 +1,3 @@
-export const deskMark =
-  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="14" height="9" rx="1.6"/><path d="M10 12v3m-4 1h8"/></svg>';
 const header = document.getElementById('site-header');
 const here = document.body.dataset.page;
 header.innerHTML = `

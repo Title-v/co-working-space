@@ -322,29 +322,6 @@ button:disabled {
   text-decoration: line-through;
 }
 
-.room-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--gray-200);
-}
-.room-tabs button {
-  min-height: 41px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 6px 15px;
-  background: transparent;
-  color: var(--gray-600);
-  font-size: 0.94rem;
-}
-.room-tabs button[aria-pressed='true'] {
-  border-color: var(--primary);
-  color: var(--primary-dark);
-  font-weight: 650;
-}
-.room-tabs button:hover {
-  background: var(--gray-100);
-}
 .map-heading {
   margin: 16px 0 10px;
 }
@@ -368,11 +345,6 @@ button:disabled {
   gap: 7px;
   padding: 6px;
   white-space: nowrap;
-}
-.desk svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
 }
 .desk[aria-pressed='true'],
 .desk[aria-pressed='true']:hover:enabled {
@@ -733,20 +705,12 @@ button:disabled {
   .slot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .room-tabs button {
-    flex: 1;
-    padding-inline: 4px;
-    font-size: 0.875rem;
-  }
   .map-key small {
     flex: 1 0 100%;
   }
   .desk {
     gap: 4px;
     font-size: 0.82rem;
-  }
-  .desk svg {
-    width: 13px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
