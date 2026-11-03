@@ -3,3 +3,7 @@ node_modules/
 .DS_Store
 *.log
 public/uploads/
+.neon
+.env.local
+/implementations/coworking-space-*.tgz
+/implementations/coverage/

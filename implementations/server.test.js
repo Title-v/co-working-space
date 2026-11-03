@@ -351,7 +351,7 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
         });
 
         it('should reject payment if booking has expired', async () => {
-            const pastTime = new Date(Date.now() - 3600000).toISOString();
+            const pastTime = new Date(Date.now() - 3600000).toISOString().replace('Z', '+00:00');
             mockSql
                 .mockResolvedValueOnce([{ id: 1, status: 'pending', num_desks: 1, expires_at: pastTime }])
                 .mockResolvedValueOnce([]);
@@ -388,11 +388,12 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
         it('GET /api/bookings/user/:userId - should return list of bookings', async () => {
             mockSql.mockResolvedValueOnce([
                 { id: 1, booking_date: '2026-10-10', status: 'confirmed' },
-                { id: 2, booking_date: '2026-10-11', status: 'pending' }
+                { id: 2, booking_date: '2026-10-11', status: 'pending', expires_at: '2026-10-11T09:30:00+07:00' }
             ]);
             const res = await request(app).get('/api/bookings/user/1');
             expect(res.statusCode).toBe(200);
             expect(res.body.bookings.length).toBe(2);
+            expect(res.body.bookings[1].expires_at).toBe('2026-10-11T02:30:00.000Z');
         });
 
         it('GET /api/bookings/:bookingId - should return 404 if not found', async () => {

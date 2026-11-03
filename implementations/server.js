@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: ['.env.local', '.env'] });
 const express = require('express');
 const postgres = require('postgres');
 const bcrypt = require('bcryptjs');
@@ -17,7 +17,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Database connection
 let sql;
 if (process.env.DATABASE_URL) {
-  sql = postgres(process.env.DATABASE_URL);
+  // The pooler can retain named statements across app restarts and schema changes.
+  sql = postgres(process.env.DATABASE_URL, { prepare: false });
 }
 
 // Getter for lazy sql access (used by middleware registered at load time)
@@ -52,8 +53,10 @@ const TOTAL_DESKS = 50;
 // Database Initialization
 // ──────────────────────────────────────────────
 
-async function initDB() {
-  try {
+function initDB(connection) {
+  return connection.begin(async sql => {
+    // Serialize first-time setup when multiple app instances start together.
+    await sql`SELECT pg_advisory_xact_lock(hashtext('spacehub.init'))`;
     // Users table
     await sql`
       CREATE TABLE IF NOT EXISTS users (
@@ -149,8 +152,22 @@ async function initDB() {
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         payment_id INTEGER REFERENCES payments(id),
         created_at TIMESTAMP DEFAULT NOW(),
-        expires_at TIMESTAMP
+        expires_at TIMESTAMPTZ
       )
+    `;
+
+    // Older versions stored JavaScript's UTC expiry values without a time zone.
+    await sql`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_attribute
+          WHERE attrelid = 'bookings'::regclass AND attname = 'expires_at'
+            AND atttypid = 'timestamp'::regtype
+        ) THEN
+          ALTER TABLE bookings ALTER COLUMN expires_at TYPE TIMESTAMPTZ
+            USING expires_at AT TIME ZONE 'UTC';
+        END IF;
+      END $$
     `;
 
     // Booking-Desks junction table
@@ -234,23 +251,19 @@ async function initDB() {
       console.log('Seeded equipment inventory');
     }
 
-    // ── Seed default manager account ──
+    // ── Seed the first manager when a password is supplied ──
     const managerExists = await sql`SELECT id FROM users WHERE role = 'manager' LIMIT 1`;
-    if (managerExists.length === 0) {
+    const managerPassword = process.env.INITIAL_MANAGER_PASSWORD;
+    if (managerExists.length === 0 && managerPassword) {
       const salt = await bcrypt.genSalt(10);
-      const hashedPw = await bcrypt.hash('admin123', salt);
+      const hashedPw = await bcrypt.hash(managerPassword, salt);
       await sql`
         INSERT INTO users (first_name, last_name, email, phone, address, password, role)
         VALUES (${encrypt('Admin')}, ${encrypt('Manager')}, 'admin@spacehub.co', ${encrypt('000-000-0000')}, ${encrypt('SpaceHub HQ')}, ${hashedPw}, 'manager')
       `;
-      console.log('Seeded default manager: admin@spacehub.co / admin123');
+      console.log('Seeded initial manager account');
     }
-
-    console.log('Database initialized — all tables ready');
-  } catch (err) {
-    console.error('Database initialization failed:', err.message);
-    process.exit(1);
-  }
+  });
 }
 
 // ──────────────────────────────────────────────
@@ -589,10 +602,7 @@ app.post('/api/bookings/:bookingId/pay', async (req, res) => {
     if (booking.status !== 'pending') {
       return res.status(400).json({ error: `Booking is ${booking.status}. Cannot pay.` });
     }
-    const expiresAtUtc = booking.expires_at
-      ? new Date(typeof booking.expires_at === 'string' && !booking.expires_at.includes('Z') ? booking.expires_at + 'Z' : booking.expires_at)
-      : null;
-    if (expiresAtUtc && expiresAtUtc < new Date()) {
+    if (booking.expires_at && new Date(booking.expires_at) <= new Date()) {
       await sql`UPDATE bookings SET status = 'expired' WHERE id = ${bookingId}`;
       return res.status(400).json({ error: 'Booking has expired. Please create a new booking.' });
     }
@@ -641,9 +651,7 @@ app.get('/api/bookings/user/:userId', async (req, res) => {
     `;
     const result = bookings.map(b => ({
       ...b,
-      expires_at: b.expires_at
-        ? new Date(typeof b.expires_at === 'string' && !b.expires_at.includes('Z') ? b.expires_at + 'Z' : b.expires_at).toISOString()
-        : null
+      expires_at: b.expires_at ? new Date(b.expires_at).toISOString() : null
     }));
     res.json({ bookings: result });
   } catch (err) {
@@ -1027,12 +1035,31 @@ app.post('/api/bank/transfer', async (req, res) => {
 // ──────────────────────────────────────────────
 // Start Server
 // ──────────────────────────────────────────────
+async function start() {
+  if (!sql) throw new Error('DATABASE_URL is required to start SpaceHub.');
+  if (!/^[a-f0-9]{64}$/i.test(process.env.ENCRYPTION_KEY || '')) {
+    throw new Error('ENCRYPTION_KEY must be a 64-character hex string.');
+  }
+
+  const schemaConnection = process.env.DATABASE_URL_UNPOOLED
+    ? postgres(process.env.DATABASE_URL_UNPOOLED, { max: 1 })
+    : sql;
+  try {
+    await initDB(schemaConnection);
+  } finally {
+    if (schemaConnection !== sql) await schemaConnection.end();
+  }
+  console.log('Database initialized — all tables ready');
+  startExpiryJob(sql);
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
+
 if (require.main === module) {
-  initDB().then(() => {
-    startExpiryJob(sql);
-    app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-    });
+  start().catch(err => {
+    console.error('Startup failed:', err.message);
+    process.exit(1);
   });
 }
 

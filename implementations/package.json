@@ -3,7 +3,14 @@
   "version": "1.0.0",
   "description": "Co-working space welcome page with Neon PostgreSQL",
   "main": "server.js",
+  "files": [
+    "server.js",
+    "lib/*.js",
+    "!lib/*.test.js",
+    "public"
+  ],
   "scripts": {
+    "build": "npm run lint && npm pack",
     "start": "node server.js",
     "dev": "node server.js",
     "lint": "node --check server.js",

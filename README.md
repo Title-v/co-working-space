@@ -107,60 +107,47 @@ A full-featured co-working space management system with desk booking, membership
    cd co-working-space
    ```
 
-2. **Install dependencies**
+2. **Install dependencies from the repository root**
    ```bash
-   cd implementations
-   npm install
+   npm ci
    ```
 
-3. **Configure environment variables**
+3. **Link and deploy Neon Postgres**
 
-   Create a `.env` file in the `implementations/` directory:
-   ```
-   DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
-   PORT=3000
-   ENCRYPTION_KEY=<64-character hex string>
-   ```
-
-   Generate an encryption key:
+   Run these commands from the repository root with a Neon account that has access to the project.
    ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   npm i -g neon@latest
+   neon init -y --org-id org-green-glade-45544333 --project-id misty-lab-89980545 --branch production --services postgres
+   neon deploy
    ```
 
-4. **Start the server**
+   Neon writes `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the root `.env.local`, or `.env` if it already exists. Express uses the pooled URL for requests and the direct URL to initialize the schema. Environment variables supplied by the host take precedence.
+
+   Set `ENCRYPTION_KEY` in the same local file. Reuse the original 64-character hex key for a database that already holds encrypted profiles. For a new database, generate a key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and store it securely. Set `INITIAL_MANAGER_PASSWORD` to a strong password to create the first manager as `admin@spacehub.co`.
+
+4. **Build and start the server**
    ```bash
+   npm run build
    npm start
    ```
 
-5. **Open in browser** → [http://localhost:3000](http://localhost:3000)
+   The build checks the server and packages the Express app and its static assets into `implementations/coworking-space-1.0.0.tgz`. On first startup, the server creates the tables, indexes, 50 desks and equipment inventory.
 
-> All database tables, indexes, seed data (50 desks, equipment inventory), and a default manager account are automatically created on first startup.
-
-### Default Manager Account
-
-| Email              | Password   |
-|--------------------|------------|
-| `admin@spacehub.co`| `admin123` |
+5. Open [SpaceHub on localhost](http://localhost:3000).
 
 ### Run with Docker
 
 ```bash
-cd implementations
-
 # Build the image
-docker build -t 2025-itcs383-emerald .
+docker build -t co-working-space ./implementations
 
-# Run the container
-docker run -p 3000:3000 \
-  -e DATABASE_URL="your_neon_connection_string" \
-  -e ENCRYPTION_KEY="your_64_char_hex_key" \
-  2025-itcs383-emerald
+# Run with the same local environment used by npm start
+docker run -p 3000:3000 --env-file .env.local co-working-space
 ```
 
 ### Run Tests
 
 ```bash
-cd implementations
 npm test
 ```
 

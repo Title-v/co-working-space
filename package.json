@@ -1,0 +1,14 @@
+{
+  "name": "co-working-space",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm --prefix implementations ci",
+    "build": "npm --prefix implementations run build",
+    "start": "node implementations/server.js",
+    "test": "npm --prefix implementations test"
+  },
+  "dependencies": {
+    "@neon/config": "^1.10.1",
+    "@neon/env": "^1.6.9"
+  }
+}
