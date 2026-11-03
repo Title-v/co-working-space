@@ -1,6 +1,6 @@
 # SpaceHub — Co-Working Space Web Application
 
-![CI/CD Pipeline](https://github.com/ICT-Mahidol/2025-ITCS383-Emerald/actions/workflows/workflow.yml/badge.svg)
+![CI/CD Pipeline](https://github.com/Title-v/co-working-space/actions/workflows/workflow.yml/badge.svg)
 
 A full-featured co-working space management system with desk booking, membership management, payment processing, employee operations, and manager analytics. Built with **HTML, CSS, JavaScript**, **Node.js/Express**, and **Neon PostgreSQL**. Deployed automatically via **GitHub Actions + Docker + Render**.
 
@@ -103,8 +103,8 @@ A full-featured co-working space management system with desk booking, membership
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/ICT-Mahidol/2025-ITCS383-Emerald.git
-   cd 2025-ITCS383-Emerald
+   git clone https://github.com/Title-v/co-working-space.git
+   cd co-working-space
    ```
 
 2. **Install dependencies**
@@ -282,3 +282,5 @@ Merge to main   → CI + CD (build → push to GHCR → deploy to Render)
 6688164&emsp;Veerakron Kaewthong <br>
 6688172&emsp;Veerakorn No-in <br>
 6688239&emsp;Piyada Chalermnontakarn <br>
+
+# co-working-space
