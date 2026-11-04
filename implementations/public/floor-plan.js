@@ -169,12 +169,12 @@ function deskButton(desk, spot, free, selected, toggle) {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.deskId = String(desk.id);
-  button.disabled = !free.has(desk.id);
+  button.dataset.unavailable = String(!free.has(desk.id));
   const label = desk.label.replace(/^Desk /, 'โต๊ะ ');
   const location = desk.zone + ' ' + label + (spot ? ' · ' + spot.section : '');
   function setState() {
     const pressed = selected.has(desk.id);
-    const state = button.disabled ? 'ไม่ว่าง' : pressed ? 'เลือกแล้ว' : 'ว่าง';
+    const state = !free.has(desk.id) ? 'ไม่ว่างในรอบนี้ ดูเวลาอื่น' : pressed ? 'เลือกแล้ว' : 'ว่าง';
     button.setAttribute('aria-pressed', String(pressed));
     button.setAttribute('aria-label', location + ' · ' + state);
     button.title = location + ' · ' + state;

@@ -131,7 +131,22 @@ function summary() {
   reserve.disabled = submitting || !slot || slot.started || !selected.size;
   updateTimelineSelection(kind, selected, slotStart, slotEnd);
 }
+let inspectedDeskId = null;
+function showDeskHours(id) {
+  const desk = schedule?.desks.find((d) => d.id === id);
+  if (!desk) return;
+  inspectedDeskId = id;
+  $('desk-time-title').textContent = desk.label + ' · ' + desk.zone;
+  $('desk-time-date').textContent = thaiDate(day.value) + ' · เวลาไทย';
+  $('desk-time-content').replaceChildren(availabilityTimeline(desk, 'desk', schedule.slots, (resource, range) => {
+    $('desk-time-dialog').close();
+    chooseAvailability(resource, range);
+  }));
+  if (!$('desk-time-dialog').open) $('desk-time-dialog').showModal();
+  updateTimelineSelection(kind, selected, slotStart, slotEnd);
+}
 function clearSchedule() {
+  $('desk-time-dialog').close();
   schedule = null;
   for (const id of [
     'slots',
@@ -369,14 +384,11 @@ function drawDesks(slot) {
     free,
     selected,
     toggle(id) {
-      if (selected.has(id)) selected.delete(id);
-      else selected.add(id);
-      notice(message);
-      saveDraft(true);
-      summary();
+      showDeskHours(id);
     }
   });
   drawDeskTimetable(desks);
+  if ($('desk-time-dialog').open) showDeskHours(inspectedDeskId);
 }
 
 function timelineControl(container, id, start) {

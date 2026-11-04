@@ -71,7 +71,7 @@
           <p id="desk-schedule-date" class="schedule-date"></p>
           <p class="schedule-help">กดช่วงว่างเพื่อเลือกโต๊ะและรอบเวลา · เปลี่ยนโซนเพื่อดูโต๊ะอื่น</p>
           <div class="schedule-key" aria-label="คำอธิบายตารางเวลา"><span><i class="free" aria-hidden="true"></i>ว่าง</span><span><i class="busy" aria-hidden="true"></i>ไม่ว่าง</span><span><i class="past" aria-hidden="true"></i>ผ่านไปแล้ว</span><span><i class="chosen" aria-hidden="true"></i>เลือกแล้ว</span></div>
-          <div id="desk-timetable-list"></div>
+          <details><summary>ดูตารางเวลาของทุกโต๊ะในโซน</summary><div id="desk-timetable-list"></div></details>
         </section>
       </div>
 
@@ -118,6 +118,12 @@
       <div class="photo-stage"><img id="room-photo-full" width="1200" height="800" alt="" hidden><p id="room-photo-status" role="status"></p></div>
       <p id="room-photo-caption"></p>
     </div>
+  </dialog>
+  <dialog id="desk-time-dialog" class="desk-time-dialog" aria-labelledby="desk-time-title">
+    <header><h2 id="desk-time-title">เวลาว่างของโต๊ะ</h2><form method="dialog"><button class="secondary" autofocus>ปิด</button></form></header>
+    <p id="desk-time-date" class="schedule-date"></p>
+    <p class="schedule-help">กดช่วงว่างเพื่อเลือกโต๊ะและเวลา · สีเทาคือช่วงไม่ว่าง</p>
+    <div id="desk-time-content"></div>
   </dialog>
   <script type="module" src="/reserve.js"></script>
 </body>
