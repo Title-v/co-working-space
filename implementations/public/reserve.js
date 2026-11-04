@@ -12,6 +12,10 @@ import {
 import { renderFloorPlan, zoneButton } from './floor-plan.js';
 import { zoneForName, zoneFromCode } from './desk-zones.mjs';
 import { privateRoomPhoto, zonePhoto } from './room-photos.js';
+import {
+  availabilityTimeline,
+  updateTimelineSelection
+} from './availability-timeline.js';
 
 const $ = (id) => document.getElementById(id);
 const day = $('day'),
@@ -125,6 +129,7 @@ function summary() {
   $('mobile-total').textContent = baht.format(total);
   $('mobile-review').hidden = !total || summaryVisible;
   reserve.disabled = submitting || !slot || slot.started || !selected.size;
+  updateTimelineSelection(kind, selected, slotStart, slotEnd);
 }
 function clearSchedule() {
   schedule = null;
@@ -134,7 +139,8 @@ function clearSchedule() {
     'zones',
     'floor-canvas',
     'extra-desks',
-    'private-room-list'
+    'private-room-list',
+    'desk-timetable-list'
   ])
     $(id).replaceChildren();
   for (const id of [
@@ -151,6 +157,8 @@ function clearSchedule() {
   $('zone-title').textContent = 'ผังโต๊ะ';
   $('zone-count').textContent = '';
   $('private-count').textContent = '';
+  $('desk-timetable').hidden = true;
+  $('room-schedule-date').textContent = '';
   summary();
 }
 
@@ -231,6 +239,8 @@ function drawPrivateRooms(slot) {
   }
   const freeCount = matching.filter((room) => free.has(room.id)).length;
   $('private-count').textContent = 'พบห้องว่าง ' + freeCount + ' ห้อง';
+  $('room-schedule-date').textContent =
+    'เวลาว่างวันที่ ' + thaiDate(day.value) + ' · เวลาไทย';
   if (!matching.length) {
     list.replaceChildren(el('p', 'ไม่พบห้องตามจำนวนผู้ใช้ที่เลือก', 'muted'));
     return;
@@ -260,7 +270,11 @@ function drawPrivateRooms(slot) {
       const meta = el('span', null, 'room-meta');
       meta.append(
         el('span', 'สูงสุด ' + room.capacity + ' คน', 'private-capacity'),
-        el('span', radio.disabled ? 'ไม่ว่าง' : 'ว่าง', 'private-status'),
+        el(
+          'span',
+          radio.disabled ? 'ไม่ว่างตามเวลาที่เลือก' : 'ว่างตามเวลาที่เลือก',
+          'private-status'
+        ),
         el('span', price, 'private-price')
       );
       row.append(el('strong', room.name, 'private-name'), meta, pick);
@@ -268,15 +282,24 @@ function drawPrivateRooms(slot) {
       line.append(
         privateRoomPhoto(room) ||
           el('span', 'ยังไม่มีภาพห้องนี้', 'photo-unavailable'),
-        row
+        row,
+        availabilityTimeline(
+          room, 'room', schedule.roomSlots, chooseAvailability
+        )
       );
       return line;
     })
   );
   if (focused) {
-    const control = focused.dataset.photo
-      ? list.querySelector('[data-photo="' + focused.dataset.photo + '"]')
-      : list.querySelector('input:enabled[value="' + focused.value + '"]');
+    const control = focused.classList.contains('time-cell')
+      ? timelineControl(
+          list,
+          focused.closest('.daily-availability').dataset.resourceId,
+          focused.dataset.start
+        )
+      : focused.dataset.photo
+        ? list.querySelector('[data-photo="' + focused.dataset.photo + '"]')
+        : list.querySelector('input:enabled[value="' + focused.value + '"]');
     control?.focus({ preventScroll: true });
   }
 }
@@ -353,6 +376,57 @@ function drawDesks(slot) {
       summary();
     }
   });
+  drawDeskTimetable(desks);
+}
+
+function timelineControl(container, id, start) {
+  return container.querySelector(
+    '.daily-availability[data-resource-id="' + id +
+    '"] .time-cell[data-start="' + start + '"]:enabled'
+  );
+}
+
+function drawDeskTimetable(desks) {
+  const list = $('desk-timetable-list');
+  const focused = list.contains(document.activeElement)
+    ? document.activeElement
+    : null;
+  $('desk-timetable').hidden = !desks.length;
+  $('desk-schedule-date').textContent =
+    zone + ' · ' + thaiDate(day.value) + ' · เวลาไทย';
+  list.replaceChildren(
+    ...desks.map((desk) => {
+      const row = el('div', null, 'desk-time-row');
+      row.append(
+        el('h4', desk.label),
+        availabilityTimeline(desk, 'desk', schedule.slots, chooseAvailability)
+      );
+      return row;
+    })
+  );
+  if (focused?.classList.contains('time-cell')) {
+    timelineControl(
+      list,
+      focused.closest('.daily-availability').dataset.resourceId,
+      focused.dataset.start
+    )?.focus({ preventScroll: true });
+  }
+  updateTimelineSelection(kind, selected, slotStart, slotEnd);
+}
+
+function chooseAvailability(resource, range) {
+  if (submitting || range.started || !availableIds(range).includes(resource.id))
+    return;
+  const sameTime = range.startTime === slotStart && range.endTime === slotEnd;
+  if (kind === 'room' || !sameTime) selected.clear();
+  selected.add(resource.id);
+  slotStart = range.startTime;
+  slotEnd = range.endTime;
+  notice(message);
+  saveDraft(true);
+  draw();
+  $('time-selection-status').textContent =
+    'เลือก ' + (resource.name || resource.label) + ' เวลา ' + range.label + ' น.';
 }
 function reconcileSelection() {
   const prior = activeSlot();

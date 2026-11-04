@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/brand.css">
   <link rel="stylesheet" href="/space.css">
   <link rel="stylesheet" href="/floor-plan.css">
+  <link rel="stylesheet" href="/availability-timeline.css">
 </head>
 <body data-page="reserve">
   <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
@@ -49,6 +50,7 @@
           <div><h3 id="zone-title">ผังโต๊ะ</h3><p id="plan-description" class="plan-description"></p></div>
           <div class="map-tools">
             <span id="zone-count"></span>
+            <a class="timetable-link" href="#desk-timetable">ดูเวลาว่างรายโต๊ะ ↓</a>
             <div id="plan-zoom" class="plan-zoom" role="group" aria-label="ขนาดผัง" hidden>
               <button id="zoom-out" type="button" aria-label="ย่อผัง" aria-controls="plan-viewport" disabled>−</button>
               <output id="zoom-value" aria-live="polite">100%</output>
@@ -64,6 +66,13 @@
           <div id="extra-desks" class="desk-grid" hidden></div>
         </div>
         <div class="map-key"><span><i aria-hidden="true"></i>ว่าง</span><span><i class="selected" aria-hidden="true"></i>เลือกแล้ว</span><span><i class="occupied" aria-hidden="true"></i>ไม่ว่าง</span><small>ผังจำลอง · เลือกได้หลายโต๊ะ</small></div>
+        <section id="desk-timetable" class="desk-timetable" aria-labelledby="desk-schedule-heading" hidden>
+          <h3 id="desk-schedule-heading">เวลาว่างรายโต๊ะ</h3>
+          <p id="desk-schedule-date" class="schedule-date"></p>
+          <p class="schedule-help">กดช่วงว่างเพื่อเลือกโต๊ะและรอบเวลา · เปลี่ยนโซนเพื่อดูโต๊ะอื่น</p>
+          <div class="schedule-key" aria-label="คำอธิบายตารางเวลา"><span><i class="free" aria-hidden="true"></i>ว่าง</span><span><i class="busy" aria-hidden="true"></i>ไม่ว่าง</span><span><i class="past" aria-hidden="true"></i>ผ่านไปแล้ว</span><span><i class="chosen" aria-hidden="true"></i>เลือกแล้ว</span></div>
+          <div id="desk-timetable-list"></div>
+        </section>
       </div>
 
       <div id="private-picker" class="room-directory" data-booking-controls hidden>
@@ -71,6 +80,11 @@
           <label for="capacity-filter">จำนวนผู้เข้าใช้</label>
           <select id="capacity-filter"><option value="0">ทุกขนาด</option></select>
           <span id="private-count" role="status"></span>
+        </div>
+        <div class="room-schedule-guide">
+          <p id="room-schedule-date" class="schedule-date"></p>
+          <p class="schedule-help">กดเวลาว่างใต้ภาพเพื่อเลือกห้อง 1 ชั่วโมง แล้วเพิ่มจำนวนชั่วโมงด้านบนได้</p>
+          <div class="schedule-key" aria-label="คำอธิบายตารางเวลา"><span><i class="free" aria-hidden="true"></i>ว่าง</span><span><i class="busy" aria-hidden="true"></i>ไม่ว่าง</span><span><i class="past" aria-hidden="true"></i>ผ่านไปแล้ว</span><span><i class="chosen" aria-hidden="true"></i>เลือกแล้ว</span></div>
         </div>
         <div id="private-room-list" role="group" aria-label="เลือกห้องส่วนตัว"></div>
         <p class="media-note">ภาพจำลองประกอบการจอง · กดภาพเพื่อขยาย</p>
@@ -92,6 +106,7 @@
         <p id="booking-message" class="notice" role="alert" hidden></p>
       </aside>
     </section>
+    <p id="time-selection-status" class="visually-hidden" role="status"></p>
     <div id="mobile-review" class="mobile-review" hidden>
       <span>ยอดชำระเดโม <strong id="mobile-total">฿0</strong></span><a href="#booking-summary" class="primary">ดูสรุปการจอง</a>
     </div>
