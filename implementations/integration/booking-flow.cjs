@@ -155,6 +155,7 @@ async function verify() {
   );
   assert.ok((await available()).slots[0].availableIds.includes(desk));
   await verifyPrivateRooms(date, available, owner, other);
+  await verifyHourlyRooms(date, available, owner, other);
   await call('/api/logout', owner.cookie, {}, 204);
   await call(path, owner.cookie, undefined, 401);
   console.log(
@@ -278,6 +279,101 @@ async function verifyPrivateRooms(date, available, owner, other) {
   await call(path(deskBooking.id) + '/cancel', owner.cookie, {}, 200);
   console.log(
     '10 whole rooms: capacities, independent desks, exclusive holds, full-day/adjacent slots, pricing, idempotent payment, cancellation and expiry passed'
+  );
+}
+
+async function verifyHourlyRooms(date, available, owner, other) {
+  const inventory = await available();
+  const room = inventory.privateRooms.find((r) =>
+    inventory.slots.at(-1).availableRoomIds.includes(r.id)
+  );
+  assert.ok(room);
+  const request = (startTime, endTime) => ({
+    date,
+    startTime,
+    endTime,
+    privateRoomId: room.id,
+    requestKey: randomUUID()
+  });
+  const reserve = (account, body, status) =>
+    call('/api/bookings', account.cookie, body, status);
+  const endpoint = (id) => '/api/bookings/' + id;
+  const threeHours = { ...request('09:00', '12:00'), total_baht: 1 };
+  const booking = (await reserve(owner, threeHours, 201)).result.booking;
+  assert.equal(Number(booking.total_baht), room.hourlyRate * 3);
+  assert.equal(
+    (await reserve(owner, threeHours, 200)).result.booking.id,
+    booking.id
+  );
+  await reserve(other, request('10:00', '11:00'), 409);
+  const held = await available();
+  const canBook = (start, end) =>
+    held.roomSlots
+      .find((s) => s.startTime === start && s.endTime === end)
+      .availableRoomIds.includes(room.id);
+  assert.ok(canBook('08:00', '09:00'));
+  assert.ok(
+    !canBook('09:00', '10:00') &&
+      !canBook('10:00', '11:00') &&
+      !canBook('11:00', '12:00')
+  );
+  assert.ok(canBook('12:00', '13:00'));
+  assert.ok(!held.slots[0].availableRoomIds.includes(room.id));
+  const payments = await Promise.all(
+    [1, 2].map(() =>
+      call(
+        endpoint(booking.id) + '/pay',
+        owner.cookie,
+        { paymentMethod: 'demo' },
+        200
+      )
+    )
+  );
+  assert.equal(payments[0].result.paymentId, payments[1].result.paymentId);
+  const [ledger] =
+    await db`SELECT count(*)::int AS entries,sum(amount) AS total FROM payments WHERE booking_id=${booking.id}`;
+  assert.equal(ledger.entries, 1);
+  assert.equal(Number(ledger.total), room.hourlyRate * 3);
+  const oneHour = (await reserve(other, request('12:00', '13:00'), 201)).result
+    .booking;
+  assert.equal(Number(oneHour.total_baht), room.hourlyRate);
+  const finalHour = (await reserve(other, request('17:00', '18:00'), 201))
+    .result.booking;
+  assert.equal(Number(finalHour.total_baht), room.hourlyRate);
+  for (const [start, end] of [
+    ['17:00', '19:00'],
+    ['07:00', '08:00'],
+    ['09:30', '10:30'],
+    ['13:00', '12:00']
+  ]) {
+    await reserve(owner, request(start, end), 400);
+  }
+  const race = await Promise.all([
+    reserve(owner, request('13:00', '14:00')),
+    reserve(other, request('13:00', '15:00'))
+  ]);
+  assert.deepEqual(race.map((r) => r.status).sort(), [201, 409]);
+  const winner = race.find((r) => r.status === 201).result.booking;
+  assert.equal(
+    Number(winner.total_baht),
+    room.hourlyRate * (winner.end_time === '15:00' ? 2 : 1)
+  );
+  await db`UPDATE bookings SET expires_at=now()-interval '1 second' WHERE id=${oneHour.id} AND user_id=${other.id}`;
+  await call(
+    endpoint(oneHour.id) + '/pay',
+    other.cookie,
+    { paymentMethod: 'demo' },
+    409
+  );
+  await call(endpoint(booking.id) + '/cancel', owner.cookie, {}, 200);
+  const released = await available();
+  assert.ok(
+    released.roomSlots
+      .find((s) => s.startTime === '09:00' && s.endTime === '13:00')
+      .availableRoomIds.includes(room.id)
+  );
+  console.log(
+    'Hourly rooms: 1/3 hours, arbitrary starting hours, adjacent reservations, closing time, overlapping concurrent holds, exact quotes, single payment and release after cancellation/expiry passed'
   );
 }
 

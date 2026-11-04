@@ -68,6 +68,19 @@
   border: 1px solid #deddd9;
   box-shadow: 0 4px 14px #1726371a;
 }
+.booking-search[data-kind='room'] {
+  grid-template-columns: 1.12fr 1fr 0.85fr 0.75fr 0.85fr;
+  width: min(1340px, 91%);
+}
+.booking-search[data-kind='room'] label {
+  padding-inline: 14px;
+}
+.booking-search[data-kind='room'] label:first-child {
+  padding-left: 6px;
+}
+.booking-search[data-kind='room'] .search-action {
+  margin-left: 14px;
+}
 .booking-search label {
   display: grid;
   align-content: end;
@@ -943,5 +956,22 @@ select {
   }
   .directory-filter {
     gap: 6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .booking-search[data-kind='room'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    width: calc(100% - 32px);
+  }
+  .booking-search[data-kind='room'] label,
+  .booking-search[data-kind='room'] label:first-child {
+    border: 0;
+    padding: 0;
+  }
+  .booking-search[data-kind='room'] .search-action {
+    grid-column: 1/-1;
+    margin: 0;
   }
 }

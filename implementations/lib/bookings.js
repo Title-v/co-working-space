@@ -19,12 +19,27 @@ const times = [
   ['16:00', '18:00'],
   ['08:00', '18:00']
 ];
-const slots = times.map(([startTime, endTime]) => ({
-  startTime,
-  endTime,
-  durationHours: Number(endTime.slice(0, 2)) - Number(startTime.slice(0, 2)),
-  label: startTime + ' – ' + endTime
-}));
+function timeSlot(startTime, endTime) {
+  return {
+    startTime,
+    endTime,
+    durationHours: Number(endTime.slice(0, 2)) - Number(startTime.slice(0, 2)),
+    label: startTime + ' – ' + endTime
+  };
+}
+
+const slots = times.map(([startTime, endTime]) => timeSlot(startTime, endTime));
+const roomSlots = [];
+for (let startHour = 8; startHour < 18; startHour++) {
+  for (let endHour = startHour + 1; endHour <= 18; endHour++) {
+    roomSlots.push(
+      timeSlot(
+        String(startHour).padStart(2, '0') + ':00',
+        String(endHour).padStart(2, '0') + ':00'
+      )
+    );
+  }
+}
 const holdMinutes = 30;
 
 function bookingWindow(now = new Date()) {
@@ -46,8 +61,8 @@ function validDay(day, range) {
   return Number.isFinite(+parsed) && parsed.toISOString().slice(0, 10) === day;
 }
 
-function hasStarted(day, slot) {
-  return day + ' ' + slot.startTime <= clock.format(new Date());
+function hasStarted(day, slot, now = clock.format(new Date())) {
+  return day + ' ' + slot.startTime <= now;
 }
 
 // Desks and private rooms are separate inventories. Only the same resource and
@@ -115,6 +130,7 @@ function bookingRoutes(getSql, price) {
       timezone: TIME_ZONE,
       price,
       slots,
+      roomSlots,
       holdMinutes,
       paymentMode: 'demo'
     })
@@ -127,6 +143,7 @@ function bookingRoutes(getSql, price) {
       const inventory = await spaceSchedule(getSql(), date);
       const desks = inventory.filter((space) => space.kind === 'desk');
       const rooms = inventory.filter((space) => space.kind === 'room');
+      const now = clock.format(new Date());
       res.json({
         date,
         price,
@@ -137,8 +154,18 @@ function bookingRoutes(getSql, price) {
           capacity,
           hourlyRate: hourly_rate
         })),
+        roomSlots: roomSlots.map((slot) => {
+          const started = hasStarted(date, slot, now);
+          return {
+            ...slot,
+            started,
+            availableRoomIds: started
+              ? []
+              : availableSpaces(rooms, slot).map((room) => room.id)
+          };
+        }),
         slots: slots.map((slot) => {
-          const started = hasStarted(date, slot);
+          const started = hasStarted(date, slot, now);
           const availableIds = started
             ? []
             : availableSpaces(desks, slot).map((d) => d.id);
@@ -164,12 +191,13 @@ function bookingRoutes(getSql, price) {
   router.post('/', async (req, res, next) => {
     const { date, startTime, endTime, deskIds, privateRoomId, requestKey } =
       req.body || {};
-    const slot = slots.find(
+    const isRoom = privateRoomId !== undefined;
+    const bookableSlots = isRoom ? roomSlots : slots;
+    const slot = bookableSlots.find(
       (s) => s.startTime === startTime && s.endTime === endTime
     );
     if (!validDay(date, bookingWindow()) || !slot || hasStarted(date, slot))
       return send(res, fail(400, 'วันหรือช่วงเวลานี้เปิดจองไม่ได้'));
-    const isRoom = privateRoomId !== undefined;
     if (isRoom && (!validId(privateRoomId) || deskIds !== undefined)) {
       return send(res, fail(400, 'กรุณาเลือกห้องส่วนตัวหนึ่งห้องต่อรายการ'));
     }

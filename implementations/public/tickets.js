@@ -59,12 +59,17 @@ function ticket(b) {
   );
   card.append(top, el('h2', thaiDate(b.booking_date)));
   const details = el('dl', null, 'details');
+  const [startHour, startMinute] = b.start_time.split(':').map(Number);
+  const [endHour, endMinute] = b.end_time.split(':').map(Number);
+  const durationHours =
+    (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60;
   const rows = [
     ['ช่วงเวลา', b.start_time + ' – ' + b.end_time + ' น.'],
     ...(b.private_room
       ? [
           ['ห้องส่วนตัวทั้งห้อง', b.private_room.name],
-          ['ความจุสูงสุด', b.private_room.capacity + ' คน']
+          ['ความจุสูงสุด', b.private_room.capacity + ' คน'],
+          ['จำนวนชั่วโมง', durationHours + ' ชั่วโมง']
         ]
       : [['ที่นั่ง', formatDesks(b.desks)]]),
     ['ยอดชำระเดโม', baht.format(b.total_baht)]

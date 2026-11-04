@@ -40,7 +40,11 @@ const savedIds =
 let selected = new Set(kind === 'room' ? savedIds.slice(0, 1) : savedIds);
 let slotStart = draft.start,
   slotEnd = draft.end,
-  zone = zoneFromCode(query.get('zone')) || zoneFromCode(draft.zoneCode) || zoneForName(draft.zone)?.name || draft.zone;
+  zone =
+    zoneFromCode(query.get('zone')) ||
+    zoneFromCode(draft.zoneCode) ||
+    zoneForName(draft.zone)?.name ||
+    draft.zone;
 let requestKey = (kind === savedKind && draft.key) || crypto.randomUUID();
 let minimumCapacity =
   kind === savedKind && Number.isInteger(draft.capacity) ? draft.capacity : 0;
@@ -49,8 +53,10 @@ let schedule = null,
   settings,
   version = 0,
   submitting = false;
+const bookingSlots = () =>
+  (kind === 'room' ? schedule?.roomSlots : schedule?.slots) || [];
 const activeSlot = () =>
-  schedule?.slots.find(
+  bookingSlots().find(
     (s) => s.startTime === slotStart && s.endTime === slotEnd
   );
 function saveDraft(reset = false) {
@@ -76,6 +82,12 @@ function availableIds(slot) {
 function syncKindControls() {
   const roomMode = kind === 'room';
   $('availability').dataset.kind = kind;
+  $('reserve').dataset.kind = kind;
+  $('room-hours-field').hidden = !roomMode;
+  $('duration-row').hidden = !roomMode;
+  $('time-label').textContent = roomMode
+    ? 'เวลาเริ่ม (เวลาไทย)'
+    : 'รอบเวลา (เวลาไทย)';
   $('desk-picker').hidden = roomMode;
   $('map-panel').hidden = roomMode;
   $('desk-total').hidden = roomMode;
@@ -93,6 +105,7 @@ function summary() {
   const slot = activeSlot();
   $('sum-day').textContent = day.value ? thaiDate(day.value) : '—';
   $('sum-time').textContent = slot ? slot.label + ' น.' : '—';
+  $('sum-hours').textContent = slot ? slot.durationHours + ' ชั่วโมง' : '—';
   let total = 0;
   if (kind === 'room') {
     const room = schedule?.privateRooms?.find((r) => selected.has(r.id));
@@ -117,6 +130,7 @@ function clearSchedule() {
   schedule = null;
   for (const id of [
     'slots',
+    'room-hours',
     'zones',
     'floor-canvas',
     'extra-desks',
@@ -131,6 +145,7 @@ function clearSchedule() {
   ])
     $(id).hidden = true;
   $('slots').disabled = true;
+  $('room-hours').disabled = true;
   $('desk-total').textContent = '';
   $('plan-description').textContent = '';
   $('zone-title').textContent = 'ผังโต๊ะ';
@@ -143,17 +158,47 @@ function draw() {
   if (!schedule) return;
   const slot = activeSlot();
   const slotSelect = $('slots');
-  const options = schedule.slots.map((s) => {
-    const value = s.startTime + '/' + s.endTime;
-    const fullDay = s.startTime === '08:00' && s.endTime === '18:00';
-    const option = new Option(fullDay ? 'เต็มวัน 08–18' : s.label, value);
-    option.disabled = s.started || !availableIds(s).length;
-    option.selected = s === slot;
-    return option;
-  });
-  if (!slot)
-    options.unshift(new Option('ไม่มีรอบว่างในวันนี้', '', true, true));
-  slotSelect.replaceChildren(...options);
+  if (kind === 'room') {
+    const starts = bookingSlots().filter((range) => range.durationHours === 1);
+    const options = starts.map((range) => {
+      const option = new Option(range.startTime + ' น.', range.startTime);
+      option.disabled = range.started;
+      option.selected = range.startTime === slot?.startTime;
+      return option;
+    });
+    if (!slot)
+      options.unshift(new Option('ไม่มีเวลาเปิดจองในวันนี้', '', true, true));
+    slotSelect.replaceChildren(...options);
+    const hours = bookingSlots().filter(
+      (range) => range.startTime === slot?.startTime
+    );
+    $('room-hours').replaceChildren(
+      ...hours.map(
+        (range) =>
+          new Option(
+            range.durationHours + ' ชั่วโมง',
+            String(range.durationHours),
+            false,
+            range === slot
+          )
+      )
+    );
+    $('room-hours').disabled = !slot;
+  } else {
+    const options = schedule.slots.map((range) => {
+      const fullDay = range.startTime === '08:00' && range.endTime === '18:00';
+      const option = new Option(
+        fullDay ? 'เต็มวัน 08–18' : range.label,
+        range.startTime + '/' + range.endTime
+      );
+      option.disabled = range.started || !availableIds(range).length;
+      option.selected = range === slot;
+      return option;
+    });
+    if (!slot)
+      options.unshift(new Option('ไม่มีรอบว่างในวันนี้', '', true, true));
+    slotSelect.replaceChildren(...options);
+  }
   slotSelect.disabled = !slot;
   if (kind === 'room') drawPrivateRooms(slot);
   else drawDesks(slot);
@@ -205,9 +250,7 @@ function drawPrivateRooms(slot) {
         saveDraft(true);
         summary();
       };
-      const price = slot
-        ? baht.format(room.hourlyRate * slot.durationHours)
-        : baht.format(room.hourlyRate) + '/ชม.';
+      const price = baht.format(room.hourlyRate) + ' / ชั่วโมง';
       const pick = el('span', null, 'room-choice');
       pick.append(
         radio,
@@ -218,7 +261,7 @@ function drawPrivateRooms(slot) {
       meta.append(
         el('span', 'สูงสุด ' + room.capacity + ' คน', 'private-capacity'),
         el('span', radio.disabled ? 'ไม่ว่าง' : 'ว่าง', 'private-status'),
-        el('span', price + (slot ? ' / รอบ' : ''), 'private-price')
+        el('span', price, 'private-price')
       );
       row.append(el('strong', room.name, 'private-name'), meta, pick);
       const line = el('div', null, 'private-line');
@@ -313,10 +356,14 @@ function drawDesks(slot) {
 }
 function reconcileSelection() {
   const prior = activeSlot();
-  const slot =
-    prior && !prior.started && availableIds(prior).length
-      ? prior
-      : schedule.slots.find((s) => !s.started && availableIds(s).length);
+  const ranges = bookingSlots();
+  // A fully booked range must remain visible, rather than shortening the customer's visit.
+  const keepPrior =
+    prior && !prior.started && (kind === 'room' || availableIds(prior).length);
+  const slot = keepPrior
+    ? prior
+    : ranges.find((range) => !range.started && availableIds(range).length) ||
+      (kind === 'room' ? ranges.find((range) => !range.started) : undefined);
   const previousCount = selected.size;
   if (!slot || (slotStart && slotEnd && prior !== slot)) selected.clear();
   slotStart = slot?.startTime;
@@ -330,6 +377,12 @@ const kindSelect = $('booking-type');
 kindSelect.value = kind;
 kindSelect.onchange = () => {
   kind = kindSelect.value;
+  if (kind === 'room') {
+    const oneHour = bookingSlots().find(
+      (range) => range.startTime === slotStart && range.durationHours === 1
+    );
+    slotEnd = oneHour?.endTime;
+  }
   const url = new URL(location.href);
   if (kind === 'room') {
     url.searchParams.set('type', 'private-room');
@@ -345,19 +398,59 @@ kindSelect.onchange = () => {
   } else summary();
   saveDraft(true);
 };
-$('slots').onchange = () => {
-  const s = schedule?.slots.find(
-    (s) => s.startTime + '/' + s.endTime === $('slots').value
-  );
-  if (!s) return;
-  slotStart = s.startTime;
-  slotEnd = s.endTime;
+function selectTime(range) {
+  if (!range) return;
+  slotStart = range.startTime;
+  slotEnd = range.endTime;
+  const previousCount = selected.size;
   selected = new Set(
-    [...selected].filter((id) => availableIds(s).includes(id))
+    [...selected].filter((id) => availableIds(range).includes(id))
   );
-  notice(message);
+  notice(
+    message,
+    selected.size !== previousCount
+      ? 'พื้นที่ที่เลือกไม่ว่างตลอดช่วงเวลานี้ กรุณาเลือกใหม่'
+      : ''
+  );
   saveDraft(true);
   draw();
+}
+$('slots').onchange = () => {
+  if (kind === 'room') {
+    const wantedHours = activeSlot()?.durationHours || 1;
+    const choices = bookingSlots().filter(
+      (range) => range.startTime === $('slots').value
+    );
+    const range =
+      choices.find((range) => range.durationHours === wantedHours) ||
+      choices.at(-1);
+    selectTime(range);
+    if (range && range.durationHours !== wantedHours) {
+      notice(
+        message,
+        'เวลาเริ่มนี้จองได้สูงสุด ' +
+          range.durationHours +
+          ' ชั่วโมง ถึง ' +
+          range.endTime +
+          ' น.'
+      );
+    }
+  } else {
+    selectTime(
+      bookingSlots().find(
+        (range) => range.startTime + '/' + range.endTime === $('slots').value
+      )
+    );
+  }
+};
+$('room-hours').onchange = () => {
+  selectTime(
+    bookingSlots().find(
+      (range) =>
+        range.startTime === slotStart &&
+        range.durationHours === Number($('room-hours').value)
+    )
+  );
 };
 $('capacity-filter').onchange = () => {
   minimumCapacity = Number($('capacity-filter').value);

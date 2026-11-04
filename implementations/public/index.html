@@ -31,7 +31,8 @@
         </select>
       </label>
       <label for="day">วันที่เข้าใช้<input type="date" id="day" required></label>
-      <label for="slots">รอบเวลา (เวลาไทย)<select id="slots" disabled><option>กำลังโหลด…</option></select></label>
+      <label for="slots"><span id="time-label">รอบเวลา (เวลาไทย)</span><select id="slots" disabled><option>กำลังโหลด…</option></select></label>
+      <label for="room-hours" id="room-hours-field" hidden>จำนวนชั่วโมง<select id="room-hours" disabled><option>—</option></select></label>
       <button type="submit" class="primary search-action">ดูพื้นที่ว่าง</button>
     </form>
 
@@ -79,7 +80,8 @@
         <h2 id="summary-heading">สรุปการจอง</h2>
         <dl class="details">
           <div><dt>วันที่เข้าใช้</dt><dd id="sum-day">—</dd></div>
-          <div><dt>รอบเวลา (เวลาไทย)</dt><dd id="sum-time">—</dd></div>
+          <div><dt>เวลาที่จอง (เวลาไทย)</dt><dd id="sum-time">—</dd></div>
+          <div id="duration-row" hidden><dt>จำนวนชั่วโมง</dt><dd id="sum-hours">—</dd></div>
           <div><dt id="resource-label">ห้องและโต๊ะ</dt><dd id="sum-desks">ยังไม่ได้เลือก</dd></div>
           <div id="capacity-row" hidden><dt>ความจุสูงสุด</dt><dd id="sum-capacity">—</dd></div>
           <div><dt id="rate-label">ราคาต่อโต๊ะต่อรอบ</dt><dd id="unit-price">—</dd></div>

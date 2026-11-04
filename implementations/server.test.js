@@ -206,6 +206,12 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
             expect(body.slots[0].availableRoomIds).toEqual([1]);
             expect(body.slots[1].availableRoomIds).toEqual([]);
             expect(body.slots.at(-1).availableRoomIds).toEqual([]);
+            expect(body.roomSlots).toHaveLength(55);
+            const hourly = (start, end) => body.roomSlots.find(s => s.startTime === start && s.endTime === end);
+            expect(hourly('09:00', '10:00').availableRoomIds).toEqual([1]);
+            expect(hourly('09:00', '12:00').availableRoomIds).toEqual([]);
+            expect(hourly('12:00', '13:00').availableRoomIds).toEqual([1]);
+            expect(hourly('17:00', '18:00').durationHours).toBe(1);
         });
 
         it.each(['2000-01-01','2099-01-01','2027-02-31','invalid'])('rejects unavailable dates %s', async date => {
@@ -222,6 +228,16 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
         it.each([{privateRoomId:0},{privateRoomId:[1,2]},{privateRoomId:1,deskIds:[1]}])('rejects invalid or mixed room requests', async selection => {
             mockAsRole('customer');
             const res=await signed().post('/api/bookings').send({date:future,startTime:'08:00',endTime:'10:00',requestKey:require('node:crypto').randomUUID(),...selection});
+            expect(res.status).toBe(400);
+            expect(mockSql).toHaveBeenCalledTimes(1);
+        });
+
+        it.each([
+            ['07:00','08:00'], ['18:00','19:00'], ['17:00','19:00'],
+            ['10:00','10:00'], ['12:00','11:00'], ['09:30','10:30'], ['9:00','10:00']
+        ])('rejects room times outside the whole-hour operating window %s–%s', async (startTime, endTime) => {
+            mockAsRole('customer');
+            const res = await signed().post('/api/bookings').send({date:future,startTime,endTime,privateRoomId:1,requestKey:require('node:crypto').randomUUID()});
             expect(res.status).toBe(400);
             expect(mockSql).toHaveBeenCalledTimes(1);
         });
