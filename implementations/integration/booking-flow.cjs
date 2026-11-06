@@ -318,7 +318,7 @@ async function verifyHourlyRooms(date, available, owner, other) {
       !canBook('11:00', '12:00')
   );
   assert.ok(canBook('12:00', '13:00'));
-  assert.ok(!held.slots[0].availableRoomIds.includes(room.id));
+  assert.ok(!held.slots[1].availableRoomIds.includes(room.id));
   const payments = await Promise.all(
     [1, 2].map(() =>
       call(

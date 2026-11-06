@@ -5,7 +5,7 @@ import { el } from './site.js';
 export function availabilityTimeline(resource, kind, slots, onChoose) {
   const field = kind === 'room' ? 'availableRoomIds' : 'availableIds';
   const cells = slots
-    .filter((slot) => slot.durationHours === (kind === 'room' ? 1 : 2))
+    .filter((slot) => slot.durationHours === 1)
     .map((slot) => ({
       ...slot,
       state: slot.started

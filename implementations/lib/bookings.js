@@ -11,14 +11,6 @@ const clock = new Intl.DateTimeFormat('sv-SE', {
   minute: '2-digit',
   hourCycle: 'h23'
 });
-const times = [
-  ['08:00', '10:00'],
-  ['10:00', '12:00'],
-  ['12:00', '14:00'],
-  ['14:00', '16:00'],
-  ['16:00', '18:00'],
-  ['08:00', '18:00']
-];
 function timeSlot(startTime, endTime) {
   return {
     startTime,
@@ -28,7 +20,7 @@ function timeSlot(startTime, endTime) {
   };
 }
 
-const slots = times.map(([startTime, endTime]) => timeSlot(startTime, endTime));
+
 const roomSlots = [];
 for (let startHour = 8; startHour < 18; startHour++) {
   for (let endHour = startHour + 1; endHour <= 18; endHour++) {
@@ -40,6 +32,10 @@ for (let startHour = 8; startHour < 18; startHour++) {
     );
   }
 }
+const slots = [
+  ...roomSlots.filter((slot) => slot.durationHours === 1),
+  timeSlot('08:00', '18:00')
+];
 const holdMinutes = 30;
 
 function bookingWindow(now = new Date()) {

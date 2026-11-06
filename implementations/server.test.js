@@ -200,11 +200,11 @@ describe('server.js API Routes - Core Business Logic Testing', () => {
             const {status,body} = await request(app).get('/api/bookings/availability').query({date:future});
             expect(status).toBe(200);
             expect(body.slots[0].availableIds).toEqual([2]);
-            expect(body.slots[1].availableIds).toEqual([1,2]);
+            expect(body.slots[2].availableIds).toEqual([1,2]);
             expect(body.slots.at(-1).availableIds).toEqual([2]);
             expect(body.privateRooms).toEqual([{id:1,name:'Focus 01',capacity:2,hourlyRate:15}]);
             expect(body.slots[0].availableRoomIds).toEqual([1]);
-            expect(body.slots[1].availableRoomIds).toEqual([]);
+            expect(body.slots[2].availableRoomIds).toEqual([]);
             expect(body.slots.at(-1).availableRoomIds).toEqual([]);
             expect(body.roomSlots).toHaveLength(55);
             const hourly = (start, end) => body.roomSlots.find(s => s.startTime === start && s.endTime === end);
